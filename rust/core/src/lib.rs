@@ -33,7 +33,7 @@ fn compute_score_with_user(text: &str, user_hate: &[String], user_safe: &[String
 	let mut score = compute_score_base(text);
 	let norm = text.to_lowercase();
 	for phrase in user_hate.iter() {
-		if norm.contains(phrase) { score += 0.6; }
+		if norm.contains(phrase) { score += 0.8; }
 	}
 	for phrase in user_safe.iter() {
 		if norm.contains(phrase) { score -= 0.4; }
