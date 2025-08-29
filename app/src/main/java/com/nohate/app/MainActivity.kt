@@ -79,7 +79,10 @@ private fun App() {
 	) { padding ->
 		NavHost(navController = nav, startDestination = startDest, modifier = Modifier.padding(padding)) {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
-			composable("home") { MainScreen(onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
+			composable("home") { MainScreen(
+				onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
+				onOpenManualTrain = { nav.navigate("manualTest") }
+			) }
 			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }) }
 			composable("manualTest") { ManualTestScreen() }
 		}
@@ -87,7 +90,7 @@ private fun App() {
 }
 
 @Composable
-private fun MainScreen(onMessage: (String) -> Unit) {
+private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Unit) {
 	val context = androidx.compose.ui.platform.LocalContext.current
 	val store = remember { SecureStore(context) }
 	var minutes by remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -129,6 +132,8 @@ private fun MainScreen(onMessage: (String) -> Unit) {
 		}) {
 			Text("Run now")
 		}
+
+		Button(onClick = onOpenManualTrain) { Text("Train AI (manual)") }
 
 		Text("Flagged comments:")
 		LazyColumn(contentPadding = PaddingValues(8.dp)) {

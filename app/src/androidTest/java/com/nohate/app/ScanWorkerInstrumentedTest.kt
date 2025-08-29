@@ -22,6 +22,7 @@ class ScanWorkerInstrumentedTest {
 		SecureStore(context).apply {
 			setFeatureEnabled("ig_graph", false)
 			setFeatureEnabled("ig_session", false)
+			addUserHatePhrase("awful") // boost "This is awful" above threshold
 		}
 	}
 

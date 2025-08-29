@@ -17,9 +17,11 @@ class ScanWorker(
 		val store = SecureStore(applicationContext)
 		val provider: CommentProvider = selectProvider(store)
 		val comments = provider.fetchRecentComments()
+		val userHate = store.getUserHatePhrases()
+		val userSafe = store.getUserSafePhrases()
 		val flagged = comments.filter { comment ->
 			try {
-				val score = NativeClassifier.classify(comment)
+				val score = NativeClassifier.classifyWithUser(comment, userHate, userSafe)
 				score >= 0.8f
 			} catch (t: Throwable) {
 				false
