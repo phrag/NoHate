@@ -69,6 +69,17 @@ gradle wrapper
 ./gradlew :app:connectedAndroidTest
 ```
 
+## Changelog
+
+### v0.1.0
+- Privacy: No cloud, no telemetry; encrypted storage (hardware-backed)
+- Instagram connectors (scaffold): Business/Creator (OAuth+PKCE) and Personal (opt‑in session)
+- Local AI Training: label examples as hate/not hate; encrypted on-device lexicon
+- Core: Android app (Compose, WorkManager) + Rust JNI classifier (fully on-device)
+- Home: modern Material 3 layout, FAB + top-bar shortcut to training
+- Utilities: scripts to build Rust, open Android Studio, run on emulator
+- Tests: instrumented tests for classifier, storage, and worker
+
 ## Roadmap
 - Replace stub with tiny LLM or small classifier (e.g., on-device quantized model)
 - Add per-user incremental learning/fine-tuning signals stored locally
