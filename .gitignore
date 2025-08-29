@@ -1,0 +1,16 @@
+# Android
+.gradle/
+/local.properties
+/.idea/
+/build/
+app/build/
+**/build/
+app/src/main/jniLibs/**
+
+# Rust
+/target/
+**/target/
+Cargo.lock
+
+# Misc
+.DS_Store
