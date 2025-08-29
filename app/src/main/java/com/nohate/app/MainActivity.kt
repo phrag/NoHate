@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ManageAccounts
 import com.nohate.app.ui.AccountsScreen
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.compose.material3.ExperimentalMaterial3Api
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
 	}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun App() {
 	var showAccounts by remember { mutableStateOf(false) }
@@ -83,9 +86,9 @@ private fun MainScreen() {
 		Slider(
 			value = minutes.toFloat(),
 			onValueChange = {
-				minutes = it.toInt().coerceIn(5, 120)
+				minutes = it.toInt().coerceIn(15, 120)
 			},
-			valueRange = 5f..120f
+			valueRange = 15f..120f
 		)
 		Button(onClick = {
 			store.setIntervalMinutes(minutes)
@@ -97,6 +100,13 @@ private fun MainScreen() {
 			)
 		}) {
 			Text("Start scanning")
+		}
+
+		Button(onClick = {
+			val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+			WorkManager.getInstance(context).enqueue(nowReq)
+		}) {
+			Text("Run now")
 		}
 
 		Text("Flagged comments:")
