@@ -29,12 +29,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.School
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.nohate.app.ui.AccountsScreen
 import com.nohate.app.ui.OnboardingScreen
 import com.nohate.app.ui.SettingsScreen
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +42,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.nohate.app.ui.ManualTestScreen
+import androidx.compose.material3.FloatingActionButton
+import androidx.navigation.compose.currentBackStackEntryAsState
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,19 +65,31 @@ private fun App() {
 	val startDest = if (store.isOnboardingComplete()) "home" else "onboarding"
 	val snackbarHostState = remember { SnackbarHostState() }
 	val scope = rememberCoroutineScope()
+	val backEntry by nav.currentBackStackEntryAsState()
+	val isHome = backEntry?.destination?.route == "home"
 
 	Scaffold(
 		topBar = {
 			TopAppBar(
 				title = { Text("NoHate") },
 				actions = {
+					IconButton(onClick = { nav.navigate("manualTest") }) {
+						Icon(Icons.Filled.School, contentDescription = "Train AI")
+					}
 					IconButton(onClick = { nav.navigate("settings") }) {
 						Icon(Icons.Filled.Settings, contentDescription = "Settings")
 					}
 				}
 			)
 		},
-		snackbarHost = { SnackbarHost(snackbarHostState) }
+		snackbarHost = { SnackbarHost(snackbarHostState) },
+		floatingActionButton = {
+			if (isHome) {
+				FloatingActionButton(onClick = { nav.navigate("manualTest") }) {
+					Icon(Icons.Filled.School, contentDescription = "Train AI")
+				}
+			}
+		}
 	) { padding ->
 		NavHost(navController = nav, startDestination = startDest, modifier = Modifier.padding(padding)) {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
@@ -104,12 +118,12 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
-		Text(text = "Scan every ${minutes} min")
+		Text("Home", style = MaterialTheme.typography.titleLarge)
+		Text("Scanning", style = MaterialTheme.typography.titleMedium)
+		Text(text = "Every ${minutes} min")
 		Slider(
 			value = minutes.toFloat(),
-			onValueChange = {
-				minutes = it.toInt().coerceIn(15, 120)
-			},
+			onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
 			valueRange = 15f..120f
 		)
 		Button(onClick = {
@@ -121,24 +135,22 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				request
 			)
 			onMessage("Scheduled scanning every ${minutes} min")
-		}) {
-			Text("Start scanning")
-		}
+		}) { Text("Start scanning") }
 
 		Button(onClick = {
 			val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
 			WorkManager.getInstance(context).enqueue(nowReq)
 			onMessage("Scan started")
-		}) {
-			Text("Run now")
-		}
+		}) { Text("Run now") }
 
-		Button(onClick = onOpenManualTrain) { Text("Train AI (manual)") }
+		Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
 
-		Text("Flagged comments:")
-		LazyColumn(contentPadding = PaddingValues(8.dp)) {
-			items(flagged) { c ->
-				Text("• ${c}")
+		Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
+		if (flagged.isEmpty()) {
+			Text("No flagged comments yet.")
+		} else {
+			LazyColumn(contentPadding = PaddingValues(8.dp)) {
+				items(flagged) { c -> Text("• ${c}") }
 			}
 		}
 	}

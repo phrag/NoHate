@@ -36,6 +36,10 @@ Privacy-first mobile app that scans your own social media comments on-device and
 - Kotlin JNI wrapper `NativeClassifier` loads `libnohcore.so`
 - Provider abstraction for platforms (Instagram Business/Creator via Graph; Instagram Personal via on-device session)
 
+## Local AI Training
+- Train on your device by labeling examples as hate/not hate in the “Local AI Training” screen.
+- Your labels are stored encrypted and used to adjust detection (no cloud).
+
 ## Local dev setup
 1) Prereqs
 - Android Studio + SDK + NDK (set `ANDROID_NDK_HOME`)

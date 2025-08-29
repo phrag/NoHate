@@ -29,7 +29,7 @@ fun ManualTestScreen() {
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
-		Text("Manual classifier test", style = MaterialTheme.typography.titleLarge)
+		Text("Local AI Training", style = MaterialTheme.typography.titleLarge)
 		OutlinedTextField(
 			value = input.value,
 			onValueChange = { input.value = it },
