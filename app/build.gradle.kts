@@ -79,6 +79,7 @@ dependencies {
 	implementation("androidx.webkit:webkit:1.11.0")
 	implementation("com.google.android.material:material:1.12.0")
 	implementation("androidx.compose.material:material-icons-extended")
+	implementation("androidx.navigation:navigation-compose:2.8.0")
 
 	androidTestImplementation("androidx.test:core-ktx:1.6.1")
 	androidTestImplementation("androidx.test.ext:junit:1.2.1")

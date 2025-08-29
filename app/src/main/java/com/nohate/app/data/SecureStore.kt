@@ -62,8 +62,12 @@ class SecureStore(context: Context) {
 			.apply()
 	}
 
+	fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDED, false)
+	fun setOnboardingComplete(value: Boolean) { prefs.edit().putBoolean(KEY_ONBOARDED, value).apply() }
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments"
+		private const val KEY_ONBOARDED = "onboarding_complete"
 	}
 }
