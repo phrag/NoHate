@@ -41,6 +41,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.nohate.app.ui.ManualTestScreen
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,7 +80,8 @@ private fun App() {
 		NavHost(navController = nav, startDestination = startDest, modifier = Modifier.padding(padding)) {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
 			composable("home") { MainScreen(onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
-			composable("settings") { SettingsScreen() }
+			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }) }
+			composable("manualTest") { ManualTestScreen() }
 		}
 	}
 }

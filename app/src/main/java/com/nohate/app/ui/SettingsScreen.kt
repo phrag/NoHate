@@ -19,7 +19,7 @@ import com.nohate.app.auth.SessionLoginActivity
 import com.nohate.app.data.SecureStore
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null) {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -53,5 +53,7 @@ fun SettingsScreen() {
 		}) { Text(if (sessionEnabled.value) "Disable Instagram Personal" else "Enable Instagram Personal (session)") }
 
 		Button(onClick = { store.clearProvider("instagram") }) { Text("Wipe Instagram credentials") }
+
+		Button(onClick = { onOpenManualTest?.invoke() }) { Text("Manual classifier test") }
 	}
 }
