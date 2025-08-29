@@ -27,10 +27,17 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ManageAccounts
-import com.nohate.app.ui.AccountsScreen
+import androidx.compose.material.icons.filled.Settings
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.nohate.app.ui.AccountsScreen
+import com.nohate.app.ui.OnboardingScreen
+import com.nohate.app.ui.SettingsScreen
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,29 +53,35 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun App() {
-	var showAccounts by remember { mutableStateOf(false) }
+	val context = androidx.compose.ui.platform.LocalContext.current
+	val store = remember { SecureStore(context) }
+	val nav = rememberNavController()
+	val startDest = if (store.isOnboardingComplete()) "home" else "onboarding"
+	val snackbarHostState = remember { SnackbarHostState() }
+
 	Scaffold(
 		topBar = {
 			TopAppBar(
 				title = { Text("NoHate") },
 				actions = {
-					IconButton(onClick = { showAccounts = !showAccounts }) {
-						Icon(Icons.Filled.ManageAccounts, contentDescription = "Accounts")
+					IconButton(onClick = { nav.navigate("settings") }) {
+						Icon(Icons.Filled.Settings, contentDescription = "Settings")
 					}
 				}
 			)
-		}
+		},
+		snackbarHost = { SnackbarHost(snackbarHostState) }
 	) { padding ->
-		if (showAccounts) {
-			AccountsScreen()
-		} else {
-			MainScreen()
+		NavHost(navController = nav, startDestination = startDest) {
+			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
+			composable("home") { MainScreen(onMessage = { msg -> LaunchedEffect(msg) { snackbarHostState.showSnackbar(msg) } }) }
+			composable("settings") { SettingsScreen() }
 		}
 	}
 }
 
 @Composable
-private fun MainScreen() {
+private fun MainScreen(onMessage: (String) -> Unit) {
 	val context = androidx.compose.ui.platform.LocalContext.current
 	val store = remember { SecureStore(context) }
 	var minutes by remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -82,7 +95,7 @@ private fun MainScreen() {
 		modifier = Modifier.fillMaxSize(),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
-		Text(text = "Interval: ${minutes} min")
+		Text(text = "Scan every ${minutes} min")
 		Slider(
 			value = minutes.toFloat(),
 			onValueChange = {
@@ -98,6 +111,7 @@ private fun MainScreen() {
 				ExistingPeriodicWorkPolicy.UPDATE,
 				request
 			)
+			onMessage("Scheduled scanning every ${minutes} min")
 		}) {
 			Text("Start scanning")
 		}
@@ -105,6 +119,7 @@ private fun MainScreen() {
 		Button(onClick = {
 			val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
 			WorkManager.getInstance(context).enqueue(nowReq)
+			onMessage("Scan started")
 		}) {
 			Text("Run now")
 		}
