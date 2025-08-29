@@ -6,9 +6,9 @@ import androidx.work.WorkerParameters
 import com.nohate.app.NativeClassifier
 import com.nohate.app.data.SecureStore
 import com.nohate.app.platform.CommentProvider
-import com.nohate.app.platform.InstagramProvider
 import com.nohate.app.platform.InstagramGraphProvider
 import com.nohate.app.platform.InstagramSessionProvider
+import com.nohate.app.platform.InstagramProvider
 
 class ScanWorker(
 	appContext: Context,	params: WorkerParameters

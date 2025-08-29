@@ -13,6 +13,7 @@ android {
 		targetSdk = 34
 		versionCode = 1
 		versionName = "1.0"
+		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 	}
 
 	buildTypes {
@@ -36,10 +37,26 @@ android {
 		kotlinCompilerExtensionVersion = "1.5.14"
 	}
 
+	compileOptions {
+		sourceCompatibility = JavaVersion.VERSION_17
+		targetCompatibility = JavaVersion.VERSION_17
+	}
+
 	packaging {
 		resources {
 			excludes += "/META-INF/{AL2.0,LGPL2.1}"
 		}
+	}
+}
+
+kotlin {
+	jvmToolchain(17)
+}
+
+// Keep kotlinOptions for clarity alongside toolchain
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+	kotlinOptions {
+		jvmTarget = "17"
 	}
 }
 
@@ -60,4 +77,11 @@ dependencies {
 	implementation("androidx.security:security-crypto:1.1.0-alpha06")
 	implementation("androidx.browser:browser:1.8.0")
 	implementation("androidx.webkit:webkit:1.11.0")
+	implementation("com.google.android.material:material:1.12.0")
+	implementation("androidx.compose.material:material-icons-extended")
+
+	androidTestImplementation("androidx.test:core-ktx:1.6.1")
+	androidTestImplementation("androidx.test.ext:junit:1.2.1")
+	androidTestImplementation("androidx.test:runner:1.6.2")
+	androidTestImplementation("androidx.work:work-testing:2.9.1")
 }
