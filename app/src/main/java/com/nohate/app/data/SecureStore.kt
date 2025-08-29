@@ -65,9 +65,36 @@ class SecureStore(context: Context) {
 	fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDED, false)
 	fun setOnboardingComplete(value: Boolean) { prefs.edit().putBoolean(KEY_ONBOARDED, value).apply() }
 
+	// User training lexicon (encrypted)
+	fun getUserHatePhrases(): List<String> {
+		val raw = prefs.getString(KEY_USER_HATE, "") ?: ""
+		return if (raw.isEmpty()) emptyList() else raw.split('\u0001').filter { it.isNotBlank() }
+	}
+
+	fun addUserHatePhrase(text: String) {
+		val cleaned = text.trim().lowercase()
+		if (cleaned.isEmpty()) return
+		val merged = (getUserHatePhrases() + cleaned).distinct().takeLast(1000)
+		prefs.edit().putString(KEY_USER_HATE, merged.joinToString("\u0001")).apply()
+	}
+
+	fun getUserSafePhrases(): List<String> {
+		val raw = prefs.getString(KEY_USER_SAFE, "") ?: ""
+		return if (raw.isEmpty()) emptyList() else raw.split('\u0001').filter { it.isNotBlank() }
+	}
+
+	fun addUserSafePhrase(text: String) {
+		val cleaned = text.trim().lowercase()
+		if (cleaned.isEmpty()) return
+		val merged = (getUserSafePhrases() + cleaned).distinct().takeLast(1000)
+		prefs.edit().putString(KEY_USER_SAFE, merged.joinToString("\u0001")).apply()
+	}
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments"
 		private const val KEY_ONBOARDED = "onboarding_complete"
+		private const val KEY_USER_HATE = "user_hate_phrases"
+		private const val KEY_USER_SAFE = "user_safe_phrases"
 	}
 }

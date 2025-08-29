@@ -25,4 +25,13 @@ class NativeClassifierInstrumentedTest {
 		val score = NativeClassifier.classify("Great post!")
 		assertFalse(score >= 0.8f)
 	}
+
+	@Test
+	fun classify_with_user_lexicon_boosts_score() {
+		val text = "this has zzz_unique_phrase"
+		val base = NativeClassifier.classify(text)
+		val boosted = NativeClassifier.classifyWithUser(text, listOf("zzz_unique_phrase"), emptyList())
+		assertTrue("Expected boosted >= base", boosted >= base)
+		assertTrue("Expected boosted to be at least 0.6", boosted >= 0.6f)
+	}
 }
