@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -38,6 +39,8 @@ import com.nohate.app.ui.OnboardingScreen
 import com.nohate.app.ui.SettingsScreen
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,6 +61,7 @@ private fun App() {
 	val nav = rememberNavController()
 	val startDest = if (store.isOnboardingComplete()) "home" else "onboarding"
 	val snackbarHostState = remember { SnackbarHostState() }
+	val scope = rememberCoroutineScope()
 
 	Scaffold(
 		topBar = {
@@ -72,9 +76,9 @@ private fun App() {
 		},
 		snackbarHost = { SnackbarHost(snackbarHostState) }
 	) { padding ->
-		NavHost(navController = nav, startDestination = startDest) {
+		NavHost(navController = nav, startDestination = startDest, modifier = Modifier.padding(padding)) {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
-			composable("home") { MainScreen(onMessage = { msg -> LaunchedEffect(msg) { snackbarHostState.showSnackbar(msg) } }) }
+			composable("home") { MainScreen(onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
 			composable("settings") { SettingsScreen() }
 		}
 	}
@@ -92,7 +96,7 @@ private fun MainScreen(onMessage: (String) -> Unit) {
 	}
 
 	Column(
-		modifier = Modifier.fillMaxSize(),
+		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
 		Text(text = "Scan every ${minutes} min")

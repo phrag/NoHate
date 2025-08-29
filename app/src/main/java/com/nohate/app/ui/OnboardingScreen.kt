@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -26,25 +27,26 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 	val minutes = remember { mutableStateOf(30) }
 
 	Column(
-		modifier = Modifier.fillMaxSize(),
+		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
 		Text("Welcome to NoHate", style = MaterialTheme.typography.titleLarge)
-		Text("Fully on-device classification. No data leaves your phone.")
-		Text("Choose a connector (you can change later):")
+		Text("We scan comments on your posts for hate speech — entirely on your device.")
+		Text("Choose a connector (you can change this later in Settings):")
 		Button(onClick = {
 			graphEnabled.value = !graphEnabled.value
 			store.setFeatureEnabled("ig_graph", graphEnabled.value)
-		}) { Text(if (graphEnabled.value) "Instagram Business/Creator (enabled)" else "Enable Instagram Business/Creator") }
+		}) { Text(if (graphEnabled.value) "✓ Instagram Business/Creator enabled" else "Enable Instagram Business/Creator") }
 		Button(onClick = {
 			sessionEnabled.value = !sessionEnabled.value
 			store.setFeatureEnabled("ig_session", sessionEnabled.value)
 			if (sessionEnabled.value) {
 				context.startActivity(Intent(context, SessionLoginActivity::class.java))
 			}
-		}) { Text(if (sessionEnabled.value) "Instagram Personal (enabled)" else "Enable Instagram Personal (session)") }
+		}) { Text(if (sessionEnabled.value) "✓ Instagram Personal enabled" else "Enable Instagram Personal (session)") }
 
-		Text("Scan interval (minutes): ${minutes.value}")
+		Text("How often should we scan?")
+		Text("Every ${minutes.value} minutes")
 		Slider(value = minutes.value.toFloat(), onValueChange = {
 			minutes.value = it.toInt().coerceIn(15, 120)
 		}, valueRange = 15f..120f)
