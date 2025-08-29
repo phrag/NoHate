@@ -1,7 +1,6 @@
 package com.nohate.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -12,6 +11,12 @@ class NativeClassifierInstrumentedTest {
 	@Test
 	fun classify_detects_awful() {
 		val score = NativeClassifier.classify("This is awful")
+		assertTrue(score >= 0.5f)
+	}
+
+	@Test
+	fun classify_detects_fuck_you() {
+		val score = NativeClassifier.classify("fuck you")
 		assertTrue(score >= 0.8f)
 	}
 
