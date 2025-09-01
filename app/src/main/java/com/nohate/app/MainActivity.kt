@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import com.nohate.app.ui.ManualTestScreen
 import androidx.compose.material3.FloatingActionButton
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.material3.ElevatedCard
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,7 +75,7 @@ private fun App() {
 				title = { Text("NoHate") },
 				actions = {
 					IconButton(onClick = { nav.navigate("manualTest") }) {
-						Icon(Icons.Filled.School, contentDescription = "Train AI")
+						Icon(Icons.Filled.School, contentDescription = "Local AI Training")
 					}
 					IconButton(onClick = { nav.navigate("settings") }) {
 						Icon(Icons.Filled.Settings, contentDescription = "Settings")
@@ -86,7 +87,7 @@ private fun App() {
 		floatingActionButton = {
 			if (isHome) {
 				FloatingActionButton(onClick = { nav.navigate("manualTest") }) {
-					Icon(Icons.Filled.School, contentDescription = "Train AI")
+					Icon(Icons.Filled.School, contentDescription = "Local AI Training")
 				}
 			}
 		}
@@ -114,43 +115,53 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		flagged = store.getFlaggedComments()
 	}
 
-	Column(
+	LazyColumn(
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
-		Text("Home", style = MaterialTheme.typography.titleLarge)
-		Text("Scanning", style = MaterialTheme.typography.titleMedium)
-		Text(text = "Every ${minutes} min")
-		Slider(
-			value = minutes.toFloat(),
-			onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
-			valueRange = 15f..120f
-		)
-		Button(onClick = {
-			store.setIntervalMinutes(minutes)
-			val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
-			WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-				"comment-scan",
-				ExistingPeriodicWorkPolicy.UPDATE,
-				request
-			)
-			onMessage("Scheduled scanning every ${minutes} min")
-		}) { Text("Start scanning") }
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Scanning", style = MaterialTheme.typography.titleMedium)
+					Text(text = "Every ${minutes} min")
+					Slider(
+						value = minutes.toFloat(),
+						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
+						valueRange = 15f..120f
+					)
+					Button(onClick = {
+						store.setIntervalMinutes(minutes)
+						val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
+						WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+							"comment-scan",
+							ExistingPeriodicWorkPolicy.UPDATE,
+							request
+						)
+						onMessage("Scheduled scanning every ${minutes} min")
+					}) { Text("Start scanning") }
 
-		Button(onClick = {
-			val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
-			WorkManager.getInstance(context).enqueue(nowReq)
-			onMessage("Scan started")
-		}) { Text("Run now") }
+					Button(onClick = {
+						val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+						WorkManager.getInstance(context).enqueue(nowReq)
+						onMessage("Scan started")
+					}) { Text("Run now") }
 
-		Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
-
-		Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
-		if (flagged.isEmpty()) {
-			Text("No flagged comments yet.")
-		} else {
-			LazyColumn(contentPadding = PaddingValues(8.dp)) {
-				items(flagged) { c -> Text("• ${c}") }
+					Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
+				}
+			}
+		}
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
+					if (flagged.isEmpty()) {
+						Text("No flagged comments yet.")
+					} else {
+						LazyColumn(contentPadding = PaddingValues(8.dp)) {
+							items(flagged) { c -> Text("• ${c}") }
+						}
+					}
+				}
 			}
 		}
 	}
