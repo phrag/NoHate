@@ -97,6 +97,7 @@ class SecureStore(context: Context) {
 		items.removeAt(index)
 		setFlaggedItems(items)
 		addUserSafePhrase(text)
+		incFalsePositive()
 	}
 
 	// Hidden items
@@ -140,6 +141,7 @@ class SecureStore(context: Context) {
 		val item = items.removeAt(index)
 		setFlaggedItems(items)
 		appendHiddenItems(listOf(item))
+		incHidden()
 	}
 
 	fun unhideHiddenItemAt(index: Int) {
@@ -161,6 +163,45 @@ class SecureStore(context: Context) {
 	fun getLastScanAt(): Long = prefs.getLong(KEY_LAST_SCAN_AT, 0L)
 	fun getLastScanTotal(): Int = prefs.getInt(KEY_LAST_SCAN_TOTAL, 0)
 	fun getLastScanFlagged(): Int = prefs.getInt(KEY_LAST_SCAN_FLAGGED, 0)
+
+	// Scan history
+	fun appendScanHistory(tsMillis: Long, total: Int, flagged: Int) {
+		val entry = listOf(tsMillis.toString(), total.toString(), flagged.toString()).joinToString("\u0002")
+		val existing = prefs.getString(KEY_SCAN_HISTORY, "") ?: ""
+		val parts = if (existing.isEmpty()) emptyList() else existing.split('\u0001')
+		val merged = (parts + entry).takeLast(200).joinToString("\u0001")
+		prefs.edit().putString(KEY_SCAN_HISTORY, merged).apply()
+	}
+
+	fun getScanHistory(): List<ScanStat> {
+		val raw = prefs.getString(KEY_SCAN_HISTORY, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').mapNotNull { rec ->
+			val p = rec.split('\u0002')
+			val ts = p.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null
+			val total = p.getOrNull(1)?.toIntOrNull() ?: 0
+			val flagged = p.getOrNull(2)?.toIntOrNull() ?: 0
+			ScanStat(ts, total, flagged)
+		}
+	}
+
+	// Metrics counters
+	private fun inc(key: String) { prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply() }
+	fun incFalsePositive() = inc(KEY_METRIC_FALSE_POS)
+	fun incHidden() = inc(KEY_METRIC_HIDDEN)
+	fun incDeleted() = inc(KEY_METRIC_DELETED)
+	fun incReported() = inc(KEY_METRIC_REPORTED)
+	fun incLlmInvocations() = inc(KEY_METRIC_LLM_INVOCATIONS)
+	fun incTrainedHate() = inc(KEY_METRIC_TRAIN_HATE)
+	fun incTrainedSafe() = inc(KEY_METRIC_TRAIN_SAFE)
+
+	fun getMetricFalsePositive(): Int = prefs.getInt(KEY_METRIC_FALSE_POS, 0)
+	fun getMetricHidden(): Int = prefs.getInt(KEY_METRIC_HIDDEN, 0)
+	fun getMetricDeleted(): Int = prefs.getInt(KEY_METRIC_DELETED, 0)
+	fun getMetricReported(): Int = prefs.getInt(KEY_METRIC_REPORTED, 0)
+	fun getMetricLlmInvocations(): Int = prefs.getInt(KEY_METRIC_LLM_INVOCATIONS, 0)
+	fun getMetricTrainedHate(): Int = prefs.getInt(KEY_METRIC_TRAIN_HATE, 0)
+	fun getMetricTrainedSafe(): Int = prefs.getInt(KEY_METRIC_TRAIN_SAFE, 0)
 
 	fun setFeatureEnabled(featureKey: String, enabled: Boolean) {
 		prefs.edit().putBoolean("feature_" + featureKey, enabled).apply()
@@ -202,6 +243,7 @@ class SecureStore(context: Context) {
 		if (cleaned.isEmpty()) return
 		val merged = (getUserHatePhrases() + cleaned).distinct().takeLast(1000)
 		prefs.edit().putString(KEY_USER_HATE, merged.joinToString("\u0001")).apply()
+		incTrainedHate()
 	}
 
 	fun getUserSafePhrases(): List<String> {
@@ -214,6 +256,7 @@ class SecureStore(context: Context) {
 		if (cleaned.isEmpty()) return
 		val merged = (getUserSafePhrases() + cleaned).distinct().takeLast(1000)
 		prefs.edit().putString(KEY_USER_SAFE, merged.joinToString("\u0001")).apply()
+		incTrainedSafe()
 	}
 
 	fun setUseQuantizedModel(enabled: Boolean) {
@@ -267,5 +310,13 @@ class SecureStore(context: Context) {
 		private const val KEY_LAST_SCAN_AT = "last_scan_at"
 		private const val KEY_LAST_SCAN_TOTAL = "last_scan_total"
 		private const val KEY_LAST_SCAN_FLAGGED = "last_scan_flagged"
+		private const val KEY_SCAN_HISTORY = "scan_history"
+		private const val KEY_METRIC_FALSE_POS = "metric_false_positive"
+		private const val KEY_METRIC_HIDDEN = "metric_hidden"
+		private const val KEY_METRIC_DELETED = "metric_deleted"
+		private const val KEY_METRIC_REPORTED = "metric_reported"
+		private const val KEY_METRIC_LLM_INVOCATIONS = "metric_llm_invocations"
+		private const val KEY_METRIC_TRAIN_HATE = "metric_train_hate"
+		private const val KEY_METRIC_TRAIN_SAFE = "metric_train_safe"
 	}
 }

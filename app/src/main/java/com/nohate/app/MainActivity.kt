@@ -58,6 +58,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.foundation.clickable
 import com.nohate.app.ui.ConsoleScreen
 import com.nohate.app.ui.ReviewScreen
+import com.nohate.app.ui.MetricsCard
 import android.content.Intent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -164,6 +165,7 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				}
 			}
 		}
+		item { MetricsCard() }
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

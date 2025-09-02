@@ -43,6 +43,7 @@ class ScanWorker(
 				val modelScore = tfl?.classify(comment) ?: 0f
 				var finalScore = maxOf(rulesScore, modelScore)
 				if (finalScore in (threshold - 0.2f)..threshold && llm != null) {
+					store.incLlmInvocations()
 					val res = llm.classify(comment, LlamaEngine.PROMPT)
 					Log.d(TAG, "llm used text='${comment.take(40)}' rules=${"%.2f".format(rulesScore)} tfl=${"%.2f".format(modelScore)} llm=${"%.2f".format(res.score)}")
 					finalScore = maxOf(finalScore, res.score)
@@ -65,7 +66,9 @@ class ScanWorker(
 			Log.d(TAG, "no comments flagged")
 			store.appendLog("scan:flagged count=0")
 		}
-		store.setLastScan(System.currentTimeMillis(), total = comments.size, flagged = flaggedTexts.size)
+		val now = System.currentTimeMillis()
+		store.setLastScan(now, total = comments.size, flagged = flaggedTexts.size)
+		store.appendScanHistory(now, total = comments.size, flagged = flaggedTexts.size)
 		return Result.success()
 	}
 
