@@ -13,6 +13,7 @@ import com.nohate.app.ml.TfliteClassifier
 import com.nohate.app.llm.LlamaEngine
 import com.nohate.app.llm.LlmEngine
 import android.util.Log
+import com.nohate.app.data.FlaggedItem
 
 class ScanWorker(
 	appContext: Context,	params: WorkerParameters
@@ -20,12 +21,14 @@ class ScanWorker(
 	override suspend fun doWork(): Result {
 		val store = SecureStore(applicationContext)
 		val manual = inputData.getString(KEY_MANUAL_COMMENTS)
+		val sourceUrl = inputData.getString(KEY_SOURCE_URL)
 		val comments: List<String> = if (!manual.isNullOrBlank()) {
 			manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
 		} else {
 			val provider: CommentProvider = selectProvider(store)
 			provider.fetchRecentComments()
 		}
+		store.appendLog("scan:start count=${comments.size}")
 		val userHate = store.getUserHatePhrases()
 		val userSafe = store.getUserSafePhrases()
 		val threshold = store.getFlagThreshold()
@@ -34,7 +37,7 @@ class ScanWorker(
 		val useLlm = store.isUseLlm()
 		val llm: LlmEngine? = if (useLlm) LlamaEngine(applicationContext).takeIf { it.isReady() } else null
 		Log.d(TAG, "scan start comments=${comments.size} quant=$useQuant llmToggle=$useLlm llmReady=${llm != null} thr=${"%.2f".format(threshold)}")
-		val flagged = comments.filter { comment ->
+		val flaggedTexts = comments.filter { comment ->
 			try {
 				val rulesScore = NativeClassifier.classifyWithUser(comment, userHate, userSafe)
 				val modelScore = tfl?.classify(comment) ?: 0f
@@ -45,18 +48,22 @@ class ScanWorker(
 					finalScore = maxOf(finalScore, res.score)
 				}
 				val isFlagged = finalScore >= threshold
-				Log.d(TAG, "decision text='${comment.take(40)}' score=${"%.2f".format(finalScore)} flagged=$isFlagged")
+				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged text='${comment.take(40)}'")
 				isFlagged
 			} catch (t: Throwable) {
 				Log.e(TAG, "classify error", t)
+				store.appendLog("scan:error ${t.message ?: t.javaClass.simpleName}")
 				false
 			}
 		}
-		if (flagged.isNotEmpty()) {
-			store.appendFlaggedComments(flagged)
-			Log.d(TAG, "flagged saved count=${flagged.size}")
+		if (flaggedTexts.isNotEmpty()) {
+			val items = flaggedTexts.map { FlaggedItem(text = it, sourceUrl = sourceUrl) }
+			store.appendFlaggedItems(items)
+			Log.d(TAG, "flagged saved count=${items.size}")
+			store.appendLog("scan:flagged count=${items.size}")
 		} else {
 			Log.d(TAG, "no comments flagged")
+			store.appendLog("scan:flagged count=0")
 		}
 		return Result.success()
 	}
@@ -70,11 +77,13 @@ class ScanWorker(
 			else -> InstagramProvider(applicationContext)
 		}
 		Log.d(TAG, "provider=${provider.javaClass.simpleName} graph=$graphEnabled session=$sessionEnabled")
+		store.appendLog("provider:${provider.javaClass.simpleName}")
 		return provider
 	}
 
 	companion object {
 		private const val TAG = "ScanWorker"
 		const val KEY_MANUAL_COMMENTS = "manual_comments"
+		const val KEY_SOURCE_URL = "source_url"
 	}
 }

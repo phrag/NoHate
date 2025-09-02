@@ -36,6 +36,60 @@ class SecureStore(context: Context) {
 		prefs.edit().putString(KEY_FLAGGED, merged.joinToString("\u0001")).apply()
 	}
 
+	fun setFlaggedComments(all: List<String>) {
+		val trimmed = all.takeLast(500)
+		prefs.edit().putString(KEY_FLAGGED, trimmed.joinToString("\u0001")).apply()
+	}
+
+	fun removeFlaggedAt(index: Int) {
+		val current = getFlaggedComments().toMutableList()
+		if (index in current.indices) {
+			current.removeAt(index)
+			setFlaggedComments(current)
+		}
+	}
+
+	// V2 flagged items with optional URL
+	fun getFlaggedItems(): List<FlaggedItem> {
+		val rawV2 = prefs.getString(KEY_FLAGGED_V2, "") ?: ""
+		if (rawV2.isNotEmpty()) {
+			return rawV2.split('\u0001')
+				.filter { it.isNotEmpty() }
+				.map { entry ->
+					val parts = entry.split('\u0002')
+					val text = parts.getOrNull(0) ?: ""
+					val url = parts.getOrNull(1)?.ifBlank { null }
+					FlaggedItem(text = text, sourceUrl = url)
+				}
+		}
+		// Fallback to legacy
+		return getFlaggedComments().map { FlaggedItem(text = it, sourceUrl = null) }
+	}
+
+	fun setFlaggedItems(items: List<FlaggedItem>) {
+		val trimmed = items.takeLast(500)
+		val serialized = trimmed.joinToString("\u0001") { item ->
+			val safeText = item.text.replace('\u0001', ' ').replace('\u0002', ' ')
+			val safeUrl = (item.sourceUrl ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
+			"${safeText}\u0002${safeUrl}"
+		}
+		prefs.edit().putString(KEY_FLAGGED_V2, serialized).apply()
+	}
+
+	fun appendFlaggedItems(newOnes: List<FlaggedItem>) {
+		if (newOnes.isEmpty()) return
+		val existing = getFlaggedItems()
+		setFlaggedItems((existing + newOnes).takeLast(500))
+	}
+
+	fun removeFlaggedItemAt(index: Int) {
+		val current = getFlaggedItems().toMutableList()
+		if (index in current.indices) {
+			current.removeAt(index)
+			setFlaggedItems(current)
+		}
+	}
+
 	fun setFeatureEnabled(featureKey: String, enabled: Boolean) {
 		prefs.edit().putBoolean("feature_" + featureKey, enabled).apply()
 	}
@@ -108,14 +162,34 @@ class SecureStore(context: Context) {
 		prefs.edit().putFloat(KEY_FLAG_THRESHOLD, v).apply()
 	}
 
+	// Console logs (encrypted, local)
+	fun appendLog(line: String) {
+		val ts = System.currentTimeMillis()
+		val entry = "${ts}:${line.replace('\n', ' ')}"
+		val existing = prefs.getString(KEY_LOGS, "") ?: ""
+		val parts = if (existing.isEmpty()) emptyList() else existing.split('\u0001')
+		val merged = (parts + entry).takeLast(1000).joinToString("\u0001")
+		prefs.edit().putString(KEY_LOGS, merged).apply()
+	}
+
+	fun getLogs(): List<String> {
+		val raw = prefs.getString(KEY_LOGS, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').filter { it.isNotEmpty() }
+	}
+
+	fun clearLogs() { prefs.edit().remove(KEY_LOGS).apply() }
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
-		private const val KEY_FLAGGED = "flagged_comments"
+		private const val KEY_FLAGGED = "flagged_comments" // legacy text-only
+		private const val KEY_FLAGGED_V2 = "flagged_items_v2" // text + url
 		private const val KEY_ONBOARDED = "onboarding_complete"
 		private const val KEY_USER_HATE = "user_hate_phrases"
 		private const val KEY_USER_SAFE = "user_safe_phrases"
 		private const val KEY_USE_QUANT = "use_quantized_model"
 		private const val KEY_USE_LLM = "use_llm"
 		private const val KEY_FLAG_THRESHOLD = "flag_threshold"
+		private const val KEY_LOGS = "console_logs"
 	}
 }

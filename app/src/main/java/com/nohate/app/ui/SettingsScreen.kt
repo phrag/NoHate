@@ -30,9 +30,6 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.nohate.app.work.ScanWorker
-import androidx.compose.material3.OutlinedTextField
-import com.nohate.app.platform.PostImporter
-import androidx.work.workDataOf
 
 @Composable
 fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null) {
@@ -44,8 +41,6 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 	val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
 	val useLlm = remember { mutableStateOf(store.isUseLlm()) }
 	val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
-	val manualComments = remember { mutableStateOf("") }
-	val postUrl = remember { mutableStateOf("") }
 
 	Column(
 		modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
@@ -65,6 +60,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 		}, valueRange = 0.5f..0.95f)
 		Button(onClick = {
 			store.setFlagThreshold(threshold.value)
+			store.appendLog("settings:threshold ${String.format("%.2f", threshold.value)}")
 			onMessage?.invoke("Threshold set to ${String.format("%.2f", threshold.value)}")
 		}) { Text("Save threshold") }
 
@@ -72,22 +68,25 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 		Button(onClick = {
 			graphEnabled.value = !graphEnabled.value
 			store.setFeatureEnabled("ig_graph", graphEnabled.value)
+			store.appendLog("settings:ig_graph ${graphEnabled.value}")
 		}) { Text(if (graphEnabled.value) "Disable Instagram Business/Creator" else "Enable Instagram Business/Creator") }
 
 		Button(onClick = {
 			sessionEnabled.value = !sessionEnabled.value
 			store.setFeatureEnabled("ig_session", sessionEnabled.value)
+			store.appendLog("settings:ig_session ${sessionEnabled.value}")
 			if (sessionEnabled.value) {
 				context.startActivity(Intent(context, SessionLoginActivity::class.java))
 			}
 		}) { Text(if (sessionEnabled.value) "Disable Instagram Personal" else "Enable Instagram Personal (session)") }
 
-		Button(onClick = { store.clearProvider("instagram") }) { Text("Wipe Instagram credentials") }
+		Button(onClick = { store.clearProvider("instagram"); store.appendLog("settings:wipe instagram") }) { Text("Wipe Instagram credentials") }
 
 		Text("On-device model (quantized)")
 		Switch(checked = useQuant.value, onCheckedChange = {
 			useQuant.value = it
 			store.setUseQuantizedModel(it)
+			store.appendLog("settings:quant ${it}")
 			if (it) {
 				try { TfliteClassifier(context).classify("warmup") } catch (_: Throwable) {}
 				onMessage?.invoke("Quantized model enabled")
@@ -98,6 +97,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 		Switch(checked = useLlm.value, onCheckedChange = {
 			useLlm.value = it
 			store.setUseLlm(it)
+			store.appendLog("settings:llm ${it}")
 			if (it) {
 				val llm = LlamaEngine(context)
 				val present = llm.modelPresent()
@@ -118,6 +118,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			} else {
 				val res = engine.classify("I hate you", LlamaEngine.PROMPT)
 				val msg = "LLM test: ${res.label} (${String.format("%.2f", res.score)})"
+				store.appendLog("llm:test ${res.label}:${String.format("%.2f", res.score)}")
 				onMessage?.invoke(msg)
 			}
 		}) { Text("Test LLM classify") }
@@ -125,53 +126,9 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 		Button(onClick = {
 			val req = OneTimeWorkRequestBuilder<ScanWorker>().build()
 			WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
+			store.appendLog("scan:enqueue immediate")
 			onMessage?.invoke("Scan enqueued")
 		}) { Text("Run scan now") }
-
-		Text("Manual comments (one per line)")
-		OutlinedTextField(value = manualComments.value, onValueChange = { manualComments.value = it }, minLines = 3)
-		Button(onClick = {
-			val payload = manualComments.value.trim()
-			if (payload.isEmpty()) { onMessage?.invoke("Enter comments first") } else {
-				val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload)
-				val req = OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
-				WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
-				onMessage?.invoke("Manual scan enqueued (${payload.lines().size} comments)")
-			}
-		}) { Text("Run manual scan") }
-
-		Text("Public Instagram post URL")
-		OutlinedTextField(value = postUrl.value, onValueChange = { postUrl.value = it }, minLines = 1)
-		Button(onClick = {
-			val url = postUrl.value.trim()
-			if (url.isEmpty()) { onMessage?.invoke("Enter a URL first") } else {
-				CoroutineScope(Dispatchers.IO).launch {
-					val comments = PostImporter.fetchPublicComments(url, limit = 50)
-					if (comments.isEmpty()) {
-						onMessage?.invoke("No comments fetched (URL or visibility)")
-					} else {
-						val payload = comments.joinToString("\u0001")
-						val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload)
-						WorkManager.getInstance(context).enqueueUniqueWork(
-							"manual_scan", ExistingWorkPolicy.REPLACE,
-							OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
-						)
-						onMessage?.invoke("Fetched ${comments.size} comments; scan enqueued")
-					}
-				}
-			}
-		}) { Text("Fetch from URL + scan") }
-
-		Button(onClick = {
-			CoroutineScope(Dispatchers.IO).launch {
-				val ok = LlmDownloader.resolveAndDownload(
-					context,
-					repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-					quantSuffix = "Q4_K_M"
-				)
-				if (ok) onMessage?.invoke("LLM model downloaded") else onMessage?.invoke("LLM download failed")
-			}
-		}) { Text("Resolve + Download TinyLlama (Q4_K_M)") }
 
 		Button(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
 	}
