@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.compose.NavHost
@@ -52,6 +53,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.foundation.clickable
 import com.nohate.app.ui.ConsoleScreen
+import com.nohate.app.ui.ReviewScreen
 import android.content.Intent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -111,17 +113,19 @@ private fun App() {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
 			composable("home") { MainScreen(
 				onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
-				onOpenManualTrain = { nav.navigate("manualTest") }
+				onOpenManualTrain = { nav.navigate("manualTest") },
+				onOpenReview = { nav.navigate("review") }
 			) }
 			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
 			composable("manualTest") { ManualTestScreen() }
 			composable("console") { ConsoleScreen() }
+			composable("review") { ReviewScreen() }
 		}
 	}
 }
 
 @Composable
-private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Unit) {
+private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Unit, onOpenReview: () -> Unit) {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	var minutes by remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -163,7 +167,10 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 						onMessage("Scan started")
 					}) { Text("Run now") }
 
-					Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
+					Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+						Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
+						Button(onClick = onOpenReview) { Text("Review flagged") }
+					}
 				}
 			}
 		}
@@ -195,6 +202,11 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 											context.startActivity(intent)
 										}) { Icon(Icons.Filled.Info, contentDescription = "Open") }
 									}
+									IconButton(onClick = {
+										store.correctFalsePositive(idx)
+										flagged = store.getFlaggedItems()
+										onMessage("Marked as not hate")
+									}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
 									IconButton(onClick = {
 										store.removeFlaggedItemAt(idx)
 										flagged = store.getFlaggedItems()
