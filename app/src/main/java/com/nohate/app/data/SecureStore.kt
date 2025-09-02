@@ -395,6 +395,31 @@ class SecureStore(context: Context) {
 
 	fun clearLogs() { prefs.edit().remove(KEY_LOGS).apply() }
 
+	fun setIgUserId(id: String) { prefs.edit().putString(KEY_IG_USER_ID, id).apply() }
+	fun getIgUserId(): String? = prefs.getString(KEY_IG_USER_ID, null)
+
+	fun setCommentIdForText(text: String, commentId: String) {
+		val sanitizedText = text.replace('\u0001', ' ').replace('\u0002', ' ')
+		val current = prefs.getString(KEY_COMMENT_ID_MAP, "") ?: ""
+		val parts = if (current.isEmpty()) mutableListOf<String>() else current.split('\u0001').toMutableList()
+		// Remove existing mapping for this text
+		for (i in parts.indices.reversed()) {
+			val p = parts[i].split('\u0002')
+			if (p.getOrNull(0) == sanitizedText) { parts.removeAt(i) }
+		}
+		parts += listOf("${sanitizedText}\u0002${commentId}")
+		prefs.edit().putString(KEY_COMMENT_ID_MAP, parts.takeLast(1000).joinToString("\u0001")).apply()
+	}
+
+	fun getCommentIdForText(text: String): String? {
+		val sanitizedText = text.replace('\u0001', ' ').replace('\u0002', ' ')
+		val raw = prefs.getString(KEY_COMMENT_ID_MAP, "") ?: ""
+		if (raw.isEmpty()) return null
+		return raw.split('\u0001')
+			.mapNotNull { rec -> rec.split('\u0002').let { if (it.size >= 2) it else null } }
+			.firstOrNull { it[0] == sanitizedText }?.get(1)
+	}
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments" // legacy text-only
@@ -425,6 +450,8 @@ class SecureStore(context: Context) {
 		private const val KEY_SCAN_P_TOTAL = "scan_progress_total"
 		private const val KEY_SCAN_P_DONE = "scan_progress_done"
 		private const val KEY_SCAN_P_MSG = "scan_progress_msg"
+		private const val KEY_COMMENT_ID_MAP = "comment_id_map"
+		private const val KEY_IG_USER_ID = "ig_user_id"
 		private const val KEY_METRIC_TOTAL_PROCESSED = "metric_total_processed"
 	}
 }
