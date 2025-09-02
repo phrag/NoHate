@@ -13,7 +13,11 @@ class InstagramProvider(private val context: Context) : CommentProvider {
 			"Great post!",
 			"This is awful",
 			"I disagree",
-			"Please be kind"
+			"Please be kind",
+			"Usual suspects",
+			"I hate you",
+			"AFD",
+			"88",
 		)
 	}
 }

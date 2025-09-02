@@ -29,6 +29,7 @@ fun MetricsCard() {
 	val llmInv = remember { mutableStateOf(store.getMetricLlmInvocations()) }
 	val trainedHate = remember { mutableStateOf(store.getMetricTrainedHate()) }
 	val trainedSafe = remember { mutableStateOf(store.getMetricTrainedSafe()) }
+	val totalProcessed = remember { mutableStateOf(store.getTotalProcessed()) }
 
 	LaunchedEffect(Unit) {
 		falsePos.value = store.getMetricFalsePositive()
@@ -38,6 +39,7 @@ fun MetricsCard() {
 		llmInv.value = store.getMetricLlmInvocations()
 		trainedHate.value = store.getMetricTrainedHate()
 		trainedSafe.value = store.getMetricTrainedSafe()
+		totalProcessed.value = store.getTotalProcessed()
 	}
 
 	ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -46,6 +48,7 @@ fun MetricsCard() {
 			Text("False positives corrected: ${falsePos.value}")
 			Text("Hidden: ${hidden.value}, Deleted: ${deleted.value}, Reported: ${reported.value}")
 			Text("LLM assists: ${llmInv.value}")
+			Text("Total comments processed: ${totalProcessed.value}")
 			Text("Trained: hate ${trainedHate.value}, safe ${trainedSafe.value}")
 		}
 	}

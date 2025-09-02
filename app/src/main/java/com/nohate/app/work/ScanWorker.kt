@@ -65,30 +65,43 @@ class ScanWorker(
 		val store = SecureStore(applicationContext)
 		val manual = inputData.getString(KEY_MANUAL_COMMENTS)
 		val sourceUrl = inputData.getString(KEY_SOURCE_URL)
-		val comments: List<String> = if (!manual.isNullOrBlank()) {
-			manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
-		} else {
-			val provider: CommentProvider = selectProvider(store)
-			val base = provider.fetchRecentComments()
-			// Also include monitored public post URLs
-			val extra = mutableListOf<String>()
-			val urls = store.getMonitoredUrls()
-			if (urls.isNotEmpty()) {
-				store.appendLog("scan:monitored urls=${urls.size}")
-				try {
-					urls.forEach { u ->
-						try {
-							extra += com.nohate.app.platform.PostImporter.fetchPublicComments(u, limit = 200)
-						} catch (t: Throwable) {
-							Log.w(TAG, "monitored fetch failed", t)
-						}
-					}
-				} catch (_: Throwable) { }
+		val comments: List<String> = when {
+			!manual.isNullOrBlank() -> {
+				manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
 			}
-			(base + extra).distinct()
+			!sourceUrl.isNullOrBlank() -> {
+				store.appendLog("scan:url ${sourceUrl}")
+				try {
+					com.nohate.app.platform.PostImporter.fetchPublicComments(sourceUrl!!, limit = 200)
+				} catch (t: Throwable) {
+					Log.w(TAG, "url fetch failed", t)
+					emptyList()
+				}
+			}
+			else -> {
+				val provider: CommentProvider = selectProvider(store)
+				val base = provider.fetchRecentComments()
+				// Also include monitored public post URLs
+				val extra = mutableListOf<String>()
+				val urls = store.getMonitoredUrls()
+				if (urls.isNotEmpty()) {
+					store.appendLog("scan:monitored urls=${urls.size}")
+					try {
+						urls.forEach { u ->
+							try {
+								extra += com.nohate.app.platform.PostImporter.fetchPublicComments(u, limit = 200)
+							} catch (t: Throwable) {
+								Log.w(TAG, "monitored fetch failed", t)
+							}
+						}
+					} catch (_: Throwable) { }
+				}
+				(base + extra).distinct()
+			}
 		}
 		// Save recent comments for review-all
 		store.setLastComments(comments.takeLast(500))
+		store.setScanProgress(total = comments.size, done = 0, message = "Starting scan")
 		store.appendLog("scan:start count=${comments.size}")
 		setForeground(createForegroundInfo("Scanning ${comments.size} comments"))
 		val userHate = store.getUserHatePhrases()
@@ -99,6 +112,7 @@ class ScanWorker(
 		val useLlm = store.isUseLlm()
 		val llm: LlmEngine? = if (useLlm) LlamaEngine(applicationContext).takeIf { it.isReady() } else null
 		Log.d(TAG, "scan start comments=${comments.size} quant=$useQuant llmToggle=$useLlm llmReady=${llm != null} thr=${"%.2f".format(threshold)}")
+		var processed = 0
 		val flaggedTexts = comments.filter { comment ->
 			try {
 				val rulesScore = NativeClassifier.classifyWithUser(comment, userHate, userSafe)
@@ -119,6 +133,10 @@ class ScanWorker(
 				if (hateOverride) { isFlagged = true; overrideNote = " override=hate" }
 				else if (safeOverride) { isFlagged = false; overrideNote = " override=safe" }
 				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged${overrideNote} text='${comment.take(40)}'")
+				processed += 1
+				if (processed % 5 == 0 || processed == comments.size) {
+					store.setScanProgress(total = comments.size, done = processed, message = "Classified ${processed}/${comments.size}")
+				}
 				isFlagged
 			} catch (t: Throwable) {
 				Log.e(TAG, "classify error", t)
@@ -126,21 +144,27 @@ class ScanWorker(
 				false
 			}
 		}
-		if (flaggedTexts.isNotEmpty()) {
-			val items = flaggedTexts.map { FlaggedItem(text = it, sourceUrl = sourceUrl) }
+		// De-duplicate against already flagged and hidden items
+		val alreadyFlagged = store.getFlaggedItems().map { it.text }.toSet()
+		val alreadyHidden = store.getHiddenItems().map { it.text }.toSet()
+		val newFlaggedTexts = flaggedTexts.filter { it !in alreadyFlagged && it !in alreadyHidden }
+		if (newFlaggedTexts.isNotEmpty()) {
+			val items = newFlaggedTexts.map { FlaggedItem(text = it, sourceUrl = sourceUrl) }
 			store.appendFlaggedItems(items)
-			store.enqueueTraining(flaggedTexts)
-			Log.d(TAG, "flagged saved count=${items.size}")
+			store.enqueueTraining(newFlaggedTexts)
+			Log.d(TAG, "flagged saved count=${items.size} (dedup from ${flaggedTexts.size})")
 			store.appendLog("scan:flagged count=${items.size}")
 			notifyDone(flagged = items.size)
 		} else {
-			Log.d(TAG, "no comments flagged")
+			Log.d(TAG, "no new comments flagged")
 			store.appendLog("scan:flagged count=0")
 			notifyDone(flagged = 0)
 		}
 		val now = System.currentTimeMillis()
 		store.setLastScan(now, total = comments.size, flagged = flaggedTexts.size)
 		store.appendScanHistory(now, total = comments.size, flagged = flaggedTexts.size)
+		store.addProcessedCount(comments.size)
+		store.setScanProgress(total = comments.size, done = comments.size, message = "Done")
 		return Result.success()
 	}
 

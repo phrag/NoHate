@@ -164,6 +164,19 @@ class SecureStore(context: Context) {
 	}
 	fun clearPendingImportComments() { prefs.edit().remove(KEY_PENDING_IMPORT).apply() }
 
+	// Live scan progress
+	fun setScanProgress(total: Int, done: Int, message: String) {
+		prefs.edit()
+			.putInt(KEY_SCAN_P_TOTAL, total)
+			.putInt(KEY_SCAN_P_DONE, done)
+			.putString(KEY_SCAN_P_MSG, message)
+			.apply()
+	}
+
+	fun getScanProgressTotal(): Int = prefs.getInt(KEY_SCAN_P_TOTAL, 0)
+	fun getScanProgressDone(): Int = prefs.getInt(KEY_SCAN_P_DONE, 0)
+	fun getScanProgressMsg(): String = prefs.getString(KEY_SCAN_P_MSG, "") ?: ""
+
 	// Last scanned comments (for review-all)
 	fun setLastComments(comments: List<String>) {
 		val safe = comments.map { it.replace('\u0001', ' ') }
@@ -281,6 +294,14 @@ class SecureStore(context: Context) {
 	fun getMetricLlmInvocations(): Int = prefs.getInt(KEY_METRIC_LLM_INVOCATIONS, 0)
 	fun getMetricTrainedHate(): Int = prefs.getInt(KEY_METRIC_TRAIN_HATE, 0)
 	fun getMetricTrainedSafe(): Int = prefs.getInt(KEY_METRIC_TRAIN_SAFE, 0)
+
+	fun addProcessedCount(delta: Int) {
+		if (delta <= 0) return
+		val cur = prefs.getLong(KEY_METRIC_TOTAL_PROCESSED, 0L)
+		prefs.edit().putLong(KEY_METRIC_TOTAL_PROCESSED, cur + delta).apply()
+	}
+
+	fun getTotalProcessed(): Long = prefs.getLong(KEY_METRIC_TOTAL_PROCESSED, 0L)
 
 	fun setFeatureEnabled(featureKey: String, enabled: Boolean) {
 		prefs.edit().putBoolean("feature_" + featureKey, enabled).apply()
@@ -401,5 +422,9 @@ class SecureStore(context: Context) {
 		private const val KEY_PENDING_IMPORT = "pending_import_comments"
 		private const val KEY_MONITORED_URLS = "monitored_post_urls"
 		private const val KEY_LAST_COMMENTS = "last_scanned_comments"
+		private const val KEY_SCAN_P_TOTAL = "scan_progress_total"
+		private const val KEY_SCAN_P_DONE = "scan_progress_done"
+		private const val KEY_SCAN_P_MSG = "scan_progress_msg"
+		private const val KEY_METRIC_TOTAL_PROCESSED = "metric_total_processed"
 	}
 }
