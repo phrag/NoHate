@@ -19,8 +19,13 @@ class ScanWorker(
 ) : CoroutineWorker(appContext, params) {
 	override suspend fun doWork(): Result {
 		val store = SecureStore(applicationContext)
-		val provider: CommentProvider = selectProvider(store)
-		val comments = provider.fetchRecentComments()
+		val manual = inputData.getString(KEY_MANUAL_COMMENTS)
+		val comments: List<String> = if (!manual.isNullOrBlank()) {
+			manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+		} else {
+			val provider: CommentProvider = selectProvider(store)
+			provider.fetchRecentComments()
+		}
 		val userHate = store.getUserHatePhrases()
 		val userSafe = store.getUserSafePhrases()
 		val threshold = store.getFlagThreshold()
@@ -70,5 +75,6 @@ class ScanWorker(
 
 	companion object {
 		private const val TAG = "ScanWorker"
+		const val KEY_MANUAL_COMMENTS = "manual_comments"
 	}
 }

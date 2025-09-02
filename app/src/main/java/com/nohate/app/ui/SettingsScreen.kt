@@ -30,6 +30,9 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.nohate.app.work.ScanWorker
+import androidx.compose.material3.OutlinedTextField
+import com.nohate.app.platform.PostImporter
+import androidx.work.workDataOf
 
 @Composable
 fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null) {
@@ -41,6 +44,8 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 	val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
 	val useLlm = remember { mutableStateOf(store.isUseLlm()) }
 	val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
+	val manualComments = remember { mutableStateOf("") }
+	val postUrl = remember { mutableStateOf("") }
 
 	Column(
 		modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
@@ -122,6 +127,40 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
 			onMessage?.invoke("Scan enqueued")
 		}) { Text("Run scan now") }
+
+		Text("Manual comments (one per line)")
+		OutlinedTextField(value = manualComments.value, onValueChange = { manualComments.value = it }, minLines = 3)
+		Button(onClick = {
+			val payload = manualComments.value.trim()
+			if (payload.isEmpty()) { onMessage?.invoke("Enter comments first") } else {
+				val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload)
+				val req = OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
+				WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
+				onMessage?.invoke("Manual scan enqueued (${payload.lines().size} comments)")
+			}
+		}) { Text("Run manual scan") }
+
+		Text("Public Instagram post URL")
+		OutlinedTextField(value = postUrl.value, onValueChange = { postUrl.value = it }, minLines = 1)
+		Button(onClick = {
+			val url = postUrl.value.trim()
+			if (url.isEmpty()) { onMessage?.invoke("Enter a URL first") } else {
+				CoroutineScope(Dispatchers.IO).launch {
+					val comments = PostImporter.fetchPublicComments(url, limit = 50)
+					if (comments.isEmpty()) {
+						onMessage?.invoke("No comments fetched (URL or visibility)")
+					} else {
+						val payload = comments.joinToString("\u0001")
+						val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload)
+						WorkManager.getInstance(context).enqueueUniqueWork(
+							"manual_scan", ExistingWorkPolicy.REPLACE,
+							OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
+						)
+						onMessage?.invoke("Fetched ${comments.size} comments; scan enqueued")
+					}
+				}
+			}
+		}) { Text("Fetch from URL + scan") }
 
 		Button(onClick = {
 			CoroutineScope(Dispatchers.IO).launch {
