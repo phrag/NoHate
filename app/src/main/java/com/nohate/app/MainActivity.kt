@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Flag
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.compose.NavHost
@@ -229,6 +231,19 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 										flagged = store.getFlaggedItems()
 										onMessage("Marked as not hate")
 									}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
+									IconButton(onClick = {
+										store.hideFlaggedItemAt(idx)
+										flagged = store.getFlaggedItems()
+										onMessage("Hidden from list")
+									}) { Icon(Icons.Filled.VisibilityOff, contentDescription = "Hide") }
+									IconButton(onClick = {
+										val report = Intent(Intent.ACTION_SEND).apply {
+											type = "text/plain"
+											putExtra(Intent.EXTRA_SUBJECT, "Report hate comment")
+											putExtra(Intent.EXTRA_TEXT, "Reported comment:\n\n${item.text}\n\nSource: ${item.sourceUrl ?: "unknown"}")
+										}
+										context.startActivity(Intent.createChooser(report, "Report via"))
+									}) { Icon(Icons.Filled.Flag, contentDescription = "Report") }
 									IconButton(onClick = {
 										store.removeFlaggedItemAt(idx)
 										flagged = store.getFlaggedItems()
