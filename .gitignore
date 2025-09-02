@@ -12,5 +12,17 @@ app/src/main/jniLibs/**
 **/target/
 Cargo.lock
 
+# Models (runtime downloads and assets we don't commit)
+app/src/main/assets/llm/
+app/src/main/assets/*.gguf
+app/src/main/assets/*.sha256
+**/files/llm/
+**/*.gguf
+**/model.sha256
+
+# NDK / CMake intermediates
+app/.cxx/
+**/.cxx/
+
 # Misc
 .DS_Store
