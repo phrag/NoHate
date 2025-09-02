@@ -65,6 +65,7 @@ class ScanWorker(
 			Log.d(TAG, "no comments flagged")
 			store.appendLog("scan:flagged count=0")
 		}
+		store.setLastScan(System.currentTimeMillis(), total = comments.size, flagged = flaggedTexts.size)
 		return Result.success()
 	}
 
