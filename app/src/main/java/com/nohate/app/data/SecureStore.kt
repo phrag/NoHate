@@ -90,6 +90,15 @@ class SecureStore(context: Context) {
 		}
 	}
 
+	fun correctFalsePositive(index: Int) {
+		val items = getFlaggedItems().toMutableList()
+		if (index !in items.indices) return
+		val text = items[index].text
+		items.removeAt(index)
+		setFlaggedItems(items)
+		addUserSafePhrase(text)
+	}
+
 	fun setFeatureEnabled(featureKey: String, enabled: Boolean) {
 		prefs.edit().putBoolean("feature_" + featureKey, enabled).apply()
 	}
