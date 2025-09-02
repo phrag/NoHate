@@ -87,6 +87,8 @@ class ScanWorker(
 			}
 			(base + extra).distinct()
 		}
+		// Save recent comments for review-all
+		store.setLastComments(comments.takeLast(500))
 		store.appendLog("scan:start count=${comments.size}")
 		setForeground(createForegroundInfo("Scanning ${comments.size} comments"))
 		val userHate = store.getUserHatePhrases()
