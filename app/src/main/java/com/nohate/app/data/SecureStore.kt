@@ -164,6 +164,32 @@ class SecureStore(context: Context) {
 	}
 	fun clearPendingImportComments() { prefs.edit().remove(KEY_PENDING_IMPORT).apply() }
 
+	// Monitored post URLs (public or owned)
+	fun getMonitoredUrls(): List<String> {
+		val raw = prefs.getString(KEY_MONITORED_URLS, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').map { it.trim() }.filter { it.isNotEmpty() }
+	}
+
+	fun addMonitoredUrl(url: String) {
+		val cleaned = url.trim()
+		if (cleaned.isEmpty()) return
+		val merged = (getMonitoredUrls() + cleaned).distinct().takeLast(100)
+		prefs.edit().putString(KEY_MONITORED_URLS, merged.joinToString("\u0001")).apply()
+	}
+
+	fun removeMonitoredUrlAt(index: Int) {
+		val list = getMonitoredUrls().toMutableList()
+		if (index in list.indices) {
+			list.removeAt(index)
+			prefs.edit().putString(KEY_MONITORED_URLS, list.joinToString("\u0001")).apply()
+		}
+	}
+
+	fun clearMonitoredUrls() {
+		prefs.edit().remove(KEY_MONITORED_URLS).apply()
+	}
+
 	// Training queue (pending prompts)
 	fun enqueueTraining(items: List<String>) {
 		if (items.isEmpty()) return
@@ -361,5 +387,6 @@ class SecureStore(context: Context) {
 		private const val KEY_METRIC_TRAIN_SAFE = "metric_train_safe"
 		private const val KEY_TRAIN_QUEUE = "train_queue"
 		private const val KEY_PENDING_IMPORT = "pending_import_comments"
+		private const val KEY_MONITORED_URLS = "monitored_post_urls"
 	}
 }

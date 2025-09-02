@@ -73,6 +73,9 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 			2 -> {
 				Text("On-device models")
 				Text("Enable fast TFLite model and optional tiny LLM for borderline cases.")
+				Text("Why LLM? It double-checks borderline comments to reduce false positives.")
+				Text("LLM download size: ~210 MB. Stored on-device. No data leaves your phone.")
+				Text("Tip: Download on Wi‑Fi. Used only during scans.")
 				Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
 					Button(onClick = {
 						useQuant.value = !useQuant.value
@@ -90,7 +93,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 					Button(onClick = {
 						if (downloading.value) return@Button
 						downloading.value = true
-						downloadMsg.value = "Downloading TinyLlama (Q4_K_M)..."
+						downloadMsg.value = "Downloading TinyLlama (~210 MB, Wi‑Fi recommended)..."
 						CoroutineScope(Dispatchers.IO).launch {
 							val ok = LlmDownloader.resolveAndDownload(
 								context,
@@ -101,7 +104,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 							downloadMsg.value = if (ok) "LLM model downloaded" else "LLM download failed"
 							store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
 						}
-					}, enabled = !downloading.value) { Text("Download TinyLlama (Q4_K_M)") }
+					}, enabled = !downloading.value) { Text("Download TinyLlama (~210 MB)") }
 					OutlinedButton(onClick = { downloadMsg.value = if (LlamaEngine(context).modelPresent()) "Model present" else "Model missing" }) { Text("Check model") }
 				}
 				if (downloadMsg.value.isNotEmpty()) Text(downloadMsg.value)
