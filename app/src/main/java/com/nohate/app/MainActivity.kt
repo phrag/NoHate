@@ -45,6 +45,7 @@ import com.nohate.app.ui.ManualTestScreen
 import androidx.compose.material3.FloatingActionButton
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.foundation.clickable
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +73,7 @@ private fun App() {
 	Scaffold(
 		topBar = {
 			TopAppBar(
-				title = { Text("NoHate") },
+				title = { Text("NoHate", modifier = Modifier.clickable { nav.navigate("home") { popUpTo("home") { inclusive = false } } }) },
 				actions = {
 					IconButton(onClick = { nav.navigate("manualTest") }) {
 						Icon(Icons.Filled.School, contentDescription = "Local AI Training")
@@ -98,7 +99,7 @@ private fun App() {
 				onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
 				onOpenManualTrain = { nav.navigate("manualTest") }
 			) }
-			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }) }
+			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
 			composable("manualTest") { ManualTestScreen() }
 		}
 	}
@@ -157,9 +158,8 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 					if (flagged.isEmpty()) {
 						Text("No flagged comments yet.")
 					} else {
-						LazyColumn(contentPadding = PaddingValues(8.dp)) {
-							items(flagged) { c -> Text("• ${c}") }
-						}
+						// Render flagged comments without a nested LazyColumn to avoid nested scrollables
+						flagged.forEach { c -> Text("• ${c}") }
 					}
 				}
 			}
