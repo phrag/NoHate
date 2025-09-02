@@ -36,11 +36,15 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.FilterChip
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun ReviewScreen() {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
+	val graph = remember { com.nohate.app.platform.InstagramGraph(context) { SecureStore(context).getOAuthToken("ig_graph") } }
 	val items = remember { mutableStateOf(store.getFlaggedItems()) }
 	val hidden = remember { mutableStateOf(store.getHiddenItems()) }
 	val clipboard = LocalClipboardManager.current
@@ -163,6 +167,26 @@ fun ReviewScreen() {
 								}
 								SecureStore(context).incReported()
 							}) { Icon(Icons.Filled.Info, contentDescription = "Report") }
+
+							// Instagram Graph API moderation (owned media only)
+							if (graph.isAuthorized()) {
+								val commentId = store.getCommentIdForText(item.text)
+								commentId?.let { cid ->
+									val scope = rememberCoroutineScope()
+									TextButton(onClick = {
+										scope.launch(Dispatchers.IO) {
+											val ok = graph.hideComment(cid, true)
+											SecureStore(context).appendLog("ig:hide ${ok}")
+										}
+									}) { Text("Hide (IG)") }
+									TextButton(onClick = {
+										scope.launch(Dispatchers.IO) {
+											val ok = graph.deleteComment(cid)
+											SecureStore(context).appendLog("ig:delete ${ok}")
+										}
+									}) { Text("Delete (IG)") }
+								}
+							}
 						}
 					}
 				}
