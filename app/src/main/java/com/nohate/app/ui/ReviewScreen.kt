@@ -14,6 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.FilterChip
+import kotlinx.coroutines.delay
+import androidx.compose.material.icons.filled.Flag
 
 @Composable
 fun ReviewScreen() {
@@ -42,10 +45,27 @@ fun ReviewScreen() {
 	val hidden = remember { mutableStateOf(store.getHiddenItems()) }
 	val clipboard = LocalClipboardManager.current
 	val showAll = remember { mutableStateOf(false) }
+	val lastComments = remember { mutableStateOf(store.getLastComments()) }
+	val lastScanAt = remember { mutableStateOf(store.getLastScanAt()) }
 
 	LaunchedEffect(Unit) {
 		items.value = store.getFlaggedItems()
 		hidden.value = store.getHiddenItems()
+		lastComments.value = store.getLastComments()
+		lastScanAt.value = store.getLastScanAt()
+	}
+
+	LaunchedEffect(true) {
+		while (true) {
+			val at = store.getLastScanAt()
+			if (at != lastScanAt.value) {
+				lastScanAt.value = at
+				items.value = store.getFlaggedItems()
+				hidden.value = store.getHiddenItems()
+				lastComments.value = store.getLastComments()
+			}
+			delay(1000)
+		}
 	}
 
 	Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -55,7 +75,7 @@ fun ReviewScreen() {
 			FilterChip(selected = showAll.value, onClick = { showAll.value = true }, label = { Text("All last scan") })
 		}
 
-		val displayItems = if (showAll.value) store.getLastComments().map { com.nohate.app.data.FlaggedItem(text = it, sourceUrl = null) } else items.value
+		val displayItems = if (showAll.value) lastComments.value.map { com.nohate.app.data.FlaggedItem(text = it, sourceUrl = null) } else items.value
 		if (displayItems.isEmpty()) {
 			Text("Nothing to review.")
 			Text("Tips:")
@@ -74,14 +94,18 @@ fun ReviewScreen() {
 				recent.forEach { Text(it) }
 			}
 		} else {
-			Button(onClick = {
-				if (showAll.value) {
-					store.setLastComments(emptyList())
-				} else {
-					store.setFlaggedItems(emptyList())
-					items.value = emptyList()
-				}
-			}) { Text("Clear all") }
+			Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+				Button(onClick = {
+					if (showAll.value) {
+						store.setLastComments(emptyList())
+						lastComments.value = emptyList()
+					} else {
+						store.setFlaggedItems(emptyList())
+						items.value = emptyList()
+					}
+				}) { Text("Clear all") }
+				TextButton(onClick = { com.nohate.app.platform.InstagramIntents.openReportHelp(context) }) { Text("How to report") }
+			}
 		}
 		LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 			items(displayItems.size) { idx ->
@@ -119,12 +143,17 @@ fun ReviewScreen() {
 									store.removeFlaggedItemAt(idx)
 									items.value = store.getFlaggedItems()
 								}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+							} else {
+								IconButton(onClick = {
+									val text = item.text
+									store.appendFlaggedItems(listOf(com.nohate.app.data.FlaggedItem(text = text, sourceUrl = item.sourceUrl)))
+									store.enqueueTraining(listOf(text))
+								}) { Icon(Icons.Filled.Flag, contentDescription = "Flag as hate") }
 							}
 							// Report: open source URL or let user share to Instagram
 							IconButton(onClick = {
 								item.sourceUrl?.let { url ->
-									val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-									context.startActivity(view)
+									com.nohate.app.platform.InstagramIntents.openPost(context, url)
 								} ?: run {
 									val share = Intent(Intent.ACTION_SEND).apply {
 										type = "text/plain"

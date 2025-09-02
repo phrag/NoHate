@@ -162,6 +162,9 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 	var lastScanFlagged by remember { mutableStateOf(store.getLastScanFlagged()) }
     val monitoredUrls = remember { mutableStateOf(store.getMonitoredUrls()) }
     val scanProgress = remember { mutableStateOf("") }
+    val scanTotal = remember { mutableStateOf(store.getScanProgressTotal()) }
+    val scanDone = remember { mutableStateOf(store.getScanProgressDone()) }
+    val scanMsg = remember { mutableStateOf(store.getScanProgressMsg()) }
 
 	LaunchedEffect(Unit) {
 		flagged = store.getFlaggedItems()
@@ -187,6 +190,10 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
                 .filter { it.startsWith("scan:") || it.startsWith("provider:") }
                 .takeLast(3)
             scanProgress.value = if (recent.isNotEmpty()) recent.joinToString(" \u2022 ") else ""
+            // progress values
+            scanTotal.value = store.getScanProgressTotal()
+            scanDone.value = store.getScanProgressDone()
+            scanMsg.value = store.getScanProgressMsg()
             delay(1000)
         }
     }
@@ -292,6 +299,10 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 					Text("Scanning", style = MaterialTheme.typography.titleMedium)
 					Text(text = "Every ${minutes} min")
+                    if (scanTotal.value > 0) {
+                        LinearProgressIndicator(progress = (scanDone.value.coerceAtMost(scanTotal.value)).toFloat() / scanTotal.value.toFloat())
+                        Text("${scanMsg.value} (${scanDone.value}/${scanTotal.value})")
+                    }
 					Slider(
 						value = minutes.toFloat(),
 						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },

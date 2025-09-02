@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Build and run the app on an Android emulator.
+./gradlew :app:assembleDebug :app:installDebug &&
+
 # Runs the NoHate app on an Android emulator or connected device.
 # - Starts the first available AVD if no device is connected
 # - Waits for boot completion
@@ -86,3 +89,5 @@ echo "App launched on device/emulator."
 cp app/build/outputs/apk/debug/app-debug.apk ./app-debug.apk
 
 echo "App debug APK copied to ./app-debug.apk"
+
+adb logcat &
