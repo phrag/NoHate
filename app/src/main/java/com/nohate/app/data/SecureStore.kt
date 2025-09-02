@@ -90,11 +90,32 @@ class SecureStore(context: Context) {
 		prefs.edit().putString(KEY_USER_SAFE, merged.joinToString("\u0001")).apply()
 	}
 
+	fun setUseQuantizedModel(enabled: Boolean) {
+		prefs.edit().putBoolean(KEY_USE_QUANT, enabled).apply()
+	}
+
+	fun isUseQuantizedModel(): Boolean = prefs.getBoolean(KEY_USE_QUANT, false)
+
+	fun setUseLlm(enabled: Boolean) {
+		prefs.edit().putBoolean(KEY_USE_LLM, enabled).apply()
+	}
+
+	fun isUseLlm(): Boolean = prefs.getBoolean(KEY_USE_LLM, false)
+
+	fun getFlagThreshold(): Float = prefs.getFloat(KEY_FLAG_THRESHOLD, 0.8f).coerceIn(0.5f, 0.95f)
+	fun setFlagThreshold(value: Float) {
+		val v = value.coerceIn(0.5f, 0.95f)
+		prefs.edit().putFloat(KEY_FLAG_THRESHOLD, v).apply()
+	}
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments"
 		private const val KEY_ONBOARDED = "onboarding_complete"
 		private const val KEY_USER_HATE = "user_hate_phrases"
 		private const val KEY_USER_SAFE = "user_safe_phrases"
+		private const val KEY_USE_QUANT = "use_quantized_model"
+		private const val KEY_USE_LLM = "use_llm"
+		private const val KEY_FLAG_THRESHOLD = "flag_threshold"
 	}
 }
