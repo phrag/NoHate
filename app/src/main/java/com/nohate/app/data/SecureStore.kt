@@ -152,6 +152,47 @@ class SecureStore(context: Context) {
 		appendFlaggedItems(listOf(item))
 	}
 
+	// Pending import comments for manual labelling
+	fun setPendingImportComments(comments: List<String>) {
+		val safe = comments.map { it.replace('\u0001', ' ') }
+		prefs.edit().putString(KEY_PENDING_IMPORT, safe.joinToString("\u0001")).apply()
+	}
+	fun getPendingImportComments(): List<String> {
+		val raw = prefs.getString(KEY_PENDING_IMPORT, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').filter { it.isNotEmpty() }
+	}
+	fun clearPendingImportComments() { prefs.edit().remove(KEY_PENDING_IMPORT).apply() }
+
+	// Training queue (pending prompts)
+	fun enqueueTraining(items: List<String>) {
+		if (items.isEmpty()) return
+		val existing = prefs.getString(KEY_TRAIN_QUEUE, "") ?: ""
+		val parts = if (existing.isEmpty()) emptyList() else existing.split('\u0001')
+		val merged = (parts + items.map { it.replace('\u0001', ' ') }).takeLast(200)
+		prefs.edit().putString(KEY_TRAIN_QUEUE, merged.joinToString("\u0001")).apply()
+	}
+
+	fun peekTraining(): String? {
+		val raw = prefs.getString(KEY_TRAIN_QUEUE, "") ?: ""
+		if (raw.isEmpty()) return null
+		return raw.split('\u0001').firstOrNull { it.isNotEmpty() }
+	}
+
+	fun dequeueTraining(): String? {
+		val raw = prefs.getString(KEY_TRAIN_QUEUE, "") ?: ""
+		if (raw.isEmpty()) return null
+		val parts = raw.split('\u0001').toMutableList()
+		val first = parts.firstOrNull()
+		if (first != null) {
+			parts.removeAt(0)
+			prefs.edit().putString(KEY_TRAIN_QUEUE, parts.joinToString("\u0001")).apply()
+		}
+		return first
+	}
+
+	fun clearTraining() { prefs.edit().remove(KEY_TRAIN_QUEUE).apply() }
+
 	// Last scan stats
 	fun setLastScan(tsMillis: Long, total: Int, flagged: Int) {
 		prefs.edit()
@@ -318,5 +359,7 @@ class SecureStore(context: Context) {
 		private const val KEY_METRIC_LLM_INVOCATIONS = "metric_llm_invocations"
 		private const val KEY_METRIC_TRAIN_HATE = "metric_train_hate"
 		private const val KEY_METRIC_TRAIN_SAFE = "metric_train_safe"
+		private const val KEY_TRAIN_QUEUE = "train_queue"
+		private const val KEY_PENDING_IMPORT = "pending_import_comments"
 	}
 }

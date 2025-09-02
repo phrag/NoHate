@@ -1,4 +1,4 @@
-package com.nohate.app.ui
+~package com.nohate.app.ui
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +34,7 @@ import androidx.work.WorkManager
 import com.nohate.app.work.ScanWorker
 
 @Composable
-fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null) {
+fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null, onOpenOnboarding: (() -> Unit)? = null) {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -41,12 +43,18 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 	val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
 	val useLlm = remember { mutableStateOf(store.isUseLlm()) }
 	val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
+	val modelPresent = remember { mutableStateOf(LlamaEngine(context).modelPresent()) }
+	val showLlmPrompt = remember { mutableStateOf(false) }
+	val downloading = remember { mutableStateOf(false) }
+	val downloadMsg = remember { mutableStateOf("") }
 
 	Column(
 		modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
 		Text("Settings", style = MaterialTheme.typography.titleLarge)
+
+		Button(onClick = { onOpenOnboarding?.invoke() }) { Text("Run setup wizard") }
 
 		Text("Scan every ${minutes.value} minutes")
 		Slider(value = minutes.value.toFloat(), onValueChange = {
@@ -98,37 +106,70 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			useLlm.value = it
 			store.setUseLlm(it)
 			store.appendLog("settings:llm ${it}")
+			val llm = LlamaEngine(context)
+			val present = llm.modelPresent()
+			modelPresent.value = present
 			if (it) {
-				val llm = LlamaEngine(context)
-				val present = llm.modelPresent()
 				onMessage?.invoke(
 					when {
 						llm.isReady() -> "LLM enabled"
 						present -> "LLM model present; engine not yet enabled"
-						else -> "LLM not ready (model missing)"
+						else -> "LLM enabled but model missing (~210 MB)"
 					}
 				)
+				if (!present) showLlmPrompt.value = true
 			} else onMessage?.invoke("LLM disabled")
 		})
 
-		Button(onClick = {
-			val engine = LlamaEngine(context)
-			if (!engine.isReady()) {
-				onMessage?.invoke("LLM not ready")
-			} else {
-				val res = engine.classify("I hate you", LlamaEngine.PROMPT)
-				val msg = "LLM test: ${res.label} (${String.format("%.2f", res.score)})"
-				store.appendLog("llm:test ${res.label}:${String.format("%.2f", res.score)}")
-				onMessage?.invoke(msg)
-			}
-		}) { Text("Test LLM classify") }
+		Text(if (modelPresent.value) "LLM model present" else "LLM model missing (~210 MB)")
+		if (!modelPresent.value) {
+			Button(onClick = {
+				if (downloading.value) return@Button
+				downloading.value = true
+				downloadMsg.value = "Resolving model and downloading..."
+				CoroutineScope(Dispatchers.IO).launch {
+					val ok = LlmDownloader.resolveAndDownload(
+						context,
+						repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+						quantSuffix = "Q4_K_M"
+					)
+					downloading.value = false
+					modelPresent.value = LlamaEngine(context).modelPresent()
+					store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
+					onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
+				}
+			}, enabled = !downloading.value) { Text("Resolve + Download TinyLlama (Q4_K_M)") }
+			if (downloadMsg.value.isNotEmpty()) Text(downloadMsg.value)
+		}
 
-		Button(onClick = {
-			val req = OneTimeWorkRequestBuilder<ScanWorker>().build()
-			WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
-			store.appendLog("scan:enqueue immediate")
-			onMessage?.invoke("Scan enqueued")
-		}) { Text("Run scan now") }
+		if (showLlmPrompt.value) {
+			AlertDialog(
+				onDismissRequest = { showLlmPrompt.value = false },
+				title = { Text("Download LLM model") },
+				text = { Text("LLM is enabled but the model file is missing. Download TinyLlama (Q4_K_M) now? ~210 MB") },
+				confirmButton = {
+					TextButton(onClick = {
+						showLlmPrompt.value = false
+						if (!downloading.value) {
+							downloading.value = true
+							downloadMsg.value = "Resolving model and downloading..."
+							CoroutineScope(Dispatchers.IO).launch {
+								val ok = LlmDownloader.resolveAndDownload(
+									context,
+									repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+									quantSuffix = "Q4_K_M"
+								)
+								downloading.value = false
+								modelPresent.value = LlamaEngine(context).modelPresent()
+								store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
+								onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
+							}
+						}
+					}) { Text("Resolve + Download") }
+				},
+				dismissButton = { TextButton(onClick = { showLlmPrompt.value = false }) { Text("Later") } }
+			)
+		}
 
 		Button(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
 	}

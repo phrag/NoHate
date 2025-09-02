@@ -60,6 +60,7 @@ class ScanWorker(
 		if (flaggedTexts.isNotEmpty()) {
 			val items = flaggedTexts.map { FlaggedItem(text = it, sourceUrl = sourceUrl) }
 			store.appendFlaggedItems(items)
+			store.enqueueTraining(flaggedTexts)
 			Log.d(TAG, "flagged saved count=${items.size}")
 			store.appendLog("scan:flagged count=${items.size}")
 		} else {
