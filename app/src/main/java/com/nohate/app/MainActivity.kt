@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,10 +23,6 @@ import com.nohate.app.work.ScanWorker
 import java.text.DateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.School
@@ -40,21 +33,19 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nohate.app.ui.OnboardingScreen
 import com.nohate.app.ui.SettingsScreen
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.nohate.app.ui.ManualTestScreen
-import androidx.compose.material3.FloatingActionButton
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.foundation.clickable
 import com.nohate.app.ui.ConsoleScreen
 import com.nohate.app.ui.ReviewScreen
@@ -86,30 +77,33 @@ private fun App() {
 	val snackbarHostState = remember { SnackbarHostState() }
 	val scope = rememberCoroutineScope()
 	val backEntry by nav.currentBackStackEntryAsState()
-	val isHome = backEntry?.destination?.route == "home"
+	val route = backEntry?.destination?.route
+	val trainingItem = remember { mutableStateOf(store.peekTraining()) }
+
+	LaunchedEffect(route) {
+		// Poll for training items while app is visible
+		while (route != null) {
+			val next = store.peekTraining()
+			if (next != trainingItem.value) trainingItem.value = next
+			delay(1000)
+		}
+	}
 
 	Scaffold(
 		topBar = {
 			TopAppBar(
-				title = { Text("NoHate", modifier = Modifier.clickable { nav.navigate("home") { popUpTo("home") { inclusive = false } } }) },
-				actions = {
-					IconButton(onClick = { nav.navigate("manualTest") }) {
-						Icon(Icons.Filled.School, contentDescription = "Local AI Training")
-					}
-					IconButton(onClick = { nav.navigate("console") }) {
-						Icon(Icons.Filled.Info, contentDescription = "Console")
-					}
-					IconButton(onClick = { nav.navigate("settings") }) {
-						Icon(Icons.Filled.Settings, contentDescription = "Settings")
-					}
-				}
+				title = { Text("NoHate", modifier = Modifier.clickable { nav.navigate("home") { popUpTo("home") { inclusive = false } } }) }
 			)
 		},
 		snackbarHost = { SnackbarHost(snackbarHostState) },
-		floatingActionButton = {
-			if (isHome) {
-				FloatingActionButton(onClick = { nav.navigate("manualTest") }) {
-					Icon(Icons.Filled.School, contentDescription = "Local AI Training")
+		bottomBar = {
+			if (route != "onboarding") {
+				NavigationBar {
+					NavigationBarItem(selected = route == "home", onClick = { nav.navigate("home") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.Home, contentDescription = "Home") }, label = { Text("Home") })
+					NavigationBarItem(selected = route == "review", onClick = { nav.navigate("review") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.List, contentDescription = "Review") }, label = { Text("Review") })
+					NavigationBarItem(selected = route == "manualTest", onClick = { nav.navigate("manualTest") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.School, contentDescription = "Train") }, label = { Text("Train") })
+					NavigationBarItem(selected = route == "console", onClick = { nav.navigate("console") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.Info, contentDescription = "Console") }, label = { Text("Console") })
+					NavigationBarItem(selected = route == "settings", onClick = { nav.navigate("settings") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.Settings, contentDescription = "Settings") }, label = { Text("Settings") })
 				}
 			}
 		}
@@ -121,11 +115,35 @@ private fun App() {
 				onOpenManualTrain = { nav.navigate("manualTest") },
 				onOpenReview = { nav.navigate("review") }
 			) }
-			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
-			composable("manualTest") { ManualTestScreen() }
+			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }, onOpenOnboarding = { nav.navigate("onboarding") }) }
+			composable("manualTest") { ManualTestScreen(onOpenReview = { nav.navigate("review") }) }
 			composable("console") { ConsoleScreen() }
 			composable("review") { ReviewScreen() }
 		}
+	}
+
+	if (trainingItem.value != null) {
+		AlertDialog(
+			onDismissRequest = { /* keep until user answers; allow later to skip */ },
+			title = { Text("Help improve NoHate") },
+			text = { Text(trainingItem.value ?: "") },
+			confirmButton = {
+				TextButton(onClick = {
+					val text = store.dequeueTraining() ?: return@TextButton
+					store.addUserHatePhrase(text)
+					store.appendLog("train:hate '${text.take(30)}'")
+					trainingItem.value = store.peekTraining()
+				}) { Text("Mark as hate") }
+			},
+			dismissButton = {
+				TextButton(onClick = {
+					val text = store.dequeueTraining() ?: return@TextButton
+					store.addUserSafePhrase(text)
+					store.appendLog("train:safe '${text.take(30)}'")
+					trainingItem.value = store.peekTraining()
+				}) { Text("Not hate") }
+			}
+		)
 	}
 }
 
