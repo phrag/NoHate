@@ -14,6 +14,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -174,6 +175,13 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 				dismissButton = { TextButton(onClick = { showLlmPrompt.value = false }) { Text("Later") } }
 			)
 		}
+
+		Text("Max comments per URL scan")
+		val maxPerUrl = remember { mutableStateOf(store.getMaxCommentsPerUrl().toString()) }
+		OutlinedTextField(value = maxPerUrl.value, onValueChange = {
+			maxPerUrl.value = it.filter { ch -> ch.isDigit() }.take(5)
+			it.filter { ch -> ch.isDigit() }.toIntOrNull()?.let { v -> store.setMaxCommentsPerUrl(v) }
+		}, singleLine = true)
 
 		Button(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
 	}
