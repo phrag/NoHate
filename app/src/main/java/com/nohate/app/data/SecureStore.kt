@@ -420,6 +420,12 @@ class SecureStore(context: Context) {
 			.firstOrNull { it[0] == sanitizedText }?.get(1)
 	}
 
+	fun getMaxCommentsPerUrl(): Int = prefs.getInt(KEY_MAX_PER_URL, 200).coerceIn(50, 5000)
+	fun setMaxCommentsPerUrl(value: Int) {
+		val v = value.coerceIn(50, 5000)
+		prefs.edit().putInt(KEY_MAX_PER_URL, v).apply()
+	}
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments" // legacy text-only
@@ -450,6 +456,7 @@ class SecureStore(context: Context) {
 		private const val KEY_SCAN_P_TOTAL = "scan_progress_total"
 		private const val KEY_SCAN_P_DONE = "scan_progress_done"
 		private const val KEY_SCAN_P_MSG = "scan_progress_msg"
+		private const val KEY_MAX_PER_URL = "max_comments_per_url"
 		private const val KEY_COMMENT_ID_MAP = "comment_id_map"
 		private const val KEY_IG_USER_ID = "ig_user_id"
 		private const val KEY_METRIC_TOTAL_PROCESSED = "metric_total_processed"

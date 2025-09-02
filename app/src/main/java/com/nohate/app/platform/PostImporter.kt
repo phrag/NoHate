@@ -11,15 +11,13 @@ object PostImporter {
 	fun fetchPublicComments(postUrl: String, limit: Int = 50): List<String> {
 		return try {
 			val url = postUrl.trim()
-			// Try direct HTML first
-			val html = httpGet(url)
-			val fromHtml = if (html != null) extractFromHtml(html, limit) else emptyList()
-			if (fromHtml.isNotEmpty()) return fromHtml
-			// Try JSON endpoint using shortcode
-			val short = extractShortcode(url) ?: return emptyList()
-			val jsonUrl = "https://www.instagram.com/p/${short}/?__a=1&__d=dis"
-			val jsonStr = httpGet(jsonUrl)
-			if (jsonStr != null) extractFromJson(jsonStr, limit) else emptyList()
+			val short = extractShortcode(url)
+			if (short == null) {
+				val html = httpGet(url)
+				val fromHtml = if (html != null) extractFromHtml(html, limit) else emptyList()
+				return fromHtml.take(limit)
+			}
+			fetchPaginated(short, limit)
 		} catch (t: Throwable) {
 			Log.e(TAG, "import error", t)
 			emptyList()
@@ -73,6 +71,45 @@ object PostImporter {
 			}
 			out
 		} catch (_: Throwable) { emptyList() }
+	}
+
+	private fun fetchPaginated(shortcode: String, limit: Int): List<String> {
+		val out = mutableListOf<String>()
+		var endCursor: String? = null
+		var hasNext = true
+		while (hasNext && out.size < limit) {
+			val base = "https://www.instagram.com/graphql/query/?query_hash=97b41c52301f77ce508f55e66d17620e&variables="
+			val variables = JSONObject(mapOf(
+				"shortcode" to shortcode,
+				"include_reel" to true,
+				"first" to 50,
+				"after" to (endCursor ?: JSONObject.NULL)
+			)).toString()
+			val url = base + java.net.URLEncoder.encode(variables, "UTF-8")
+			val json = httpGet(url) ?: break
+			try {
+				val root = JSONObject(json)
+				val edges = root.optJSONObject("data")
+					?.optJSONObject("shortcode_media")
+					?.optJSONObject("edge_media_to_parent_comment")
+					?.optJSONArray("edges")
+				val pageInfo = root.optJSONObject("data")
+					?.optJSONObject("shortcode_media")
+					?.optJSONObject("edge_media_to_parent_comment")
+					?.optJSONObject("page_info")
+				if (edges != null) {
+					for (i in 0 until edges.length()) {
+						val node = edges.getJSONObject(i).optJSONObject("node")
+						val text = node?.optString("text") ?: ""
+						if (text.isNotBlank()) out.add(text)
+						if (out.size >= limit) break
+					}
+				}
+				hasNext = pageInfo?.optBoolean("has_next_page") == true
+				endCursor = pageInfo?.optString("end_cursor")
+			} catch (_: Throwable) { break }
+		}
+		return out
 	}
 
 	private fun extractShortcode(url: String): String? {

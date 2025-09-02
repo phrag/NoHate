@@ -72,7 +72,7 @@ class ScanWorker(
 			!sourceUrl.isNullOrBlank() -> {
 				store.appendLog("scan:url ${sourceUrl}")
 				try {
-					com.nohate.app.platform.PostImporter.fetchPublicComments(sourceUrl!!, limit = 200)
+					com.nohate.app.platform.PostImporter.fetchPublicComments(sourceUrl!!, limit = store.getMaxCommentsPerUrl())
 				} catch (t: Throwable) {
 					Log.w(TAG, "url fetch failed", t)
 					emptyList()
