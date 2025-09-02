@@ -195,55 +195,27 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text("Status", style = MaterialTheme.typography.titleMedium)
-					Text("Connectors — Business/Creator: ${graphEnabled.value}, Personal: ${sessionEnabled.value}")
-					Text("LLM enabled: ${llmEnabled.value}")
-					val whenStr = if (lastScanAt == 0L) "never" else DateFormat.getDateTimeInstance().format(Date(lastScanAt))
-					Text("Last scan: ${whenStr} (total ${lastScanTotal}, flagged ${lastScanFlagged})")
-				}
-			}
-		}
-		item { MetricsCard() }
+		// Minimal top actions
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Scanning", style = MaterialTheme.typography.titleMedium)
-					Text(text = "Every ${minutes} min")
-                    if (scanProgress.value.isNotEmpty()) {
-                        Text(scanProgress.value)
-                    }
-					Slider(
-						value = minutes.toFloat(),
-						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
-						valueRange = 15f..120f
-					)
-					Button(onClick = {
-						store.setIntervalMinutes(minutes)
-						val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
-						WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-							"comment-scan",
-							ExistingPeriodicWorkPolicy.UPDATE,
-							request
-						)
-						onMessage("Scheduled scanning every ${minutes} min")
-					}) { Text("Start scanning") }
-
-					Button(onClick = {
-						val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
-						WorkManager.getInstance(context).enqueue(nowReq)
-						onMessage("Scan started")
-					}) { Text("Run now") }
-
 					Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-						Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
-						Button(onClick = onOpenReview) { Text("Review flagged") }
+						Button(onClick = {
+							val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+							WorkManager.getInstance(context).enqueue(nowReq)
+							onMessage("Scan started")
+						}) { Text("Run now") }
+						Button(onClick = onOpenReview) { Text("Review") }
+						Button(onClick = onOpenManualTrain) { Text("Teach AI") }
+					}
+					if (scanProgress.value.isNotEmpty()) {
+						Text(scanProgress.value)
 					}
 				}
 			}
 		}
+
+		// Flagged preview
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -314,41 +286,81 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				}
 			}
 		}
-        item {
-            ElevatedCard {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Monitored posts", style = MaterialTheme.typography.titleMedium)
-                    if (monitoredUrls.value.isEmpty()) {
-                        Text("No monitored posts. Add a public or owned post URL to monitor during each scan.")
-                    } else {
-                        monitoredUrls.value.forEachIndexed { idx, url ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(url, modifier = Modifier.weight(1f))
-                                Button(onClick = {
-                                    store.removeMonitoredUrlAt(idx)
-                                    monitoredUrls.value = store.getMonitoredUrls()
-                                    onMessage("Removed monitored URL")
-                                }) { Text("Remove") }
-                            }
-                        }
-                        Button(onClick = {
-                            store.clearMonitoredUrls()
-                            monitoredUrls.value = store.getMonitoredUrls()
-                        }) { Text("Clear all") }
-                    }
-                    var newUrl by remember { mutableStateOf("") }
-                    OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
-                    Button(onClick = {
-                        val u = newUrl.trim()
-                        if (u.isNotEmpty()) {
-                            store.addMonitoredUrl(u)
-                            monitoredUrls.value = store.getMonitoredUrls()
-                            newUrl = ""
-                            onMessage("Added to monitor list")
-                        }
-                    }) { Text("Add post to monitor") }
-                }
-            }
-        }
+		// Scanning controls
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Scanning", style = MaterialTheme.typography.titleMedium)
+					Text(text = "Every ${minutes} min")
+					Slider(
+						value = minutes.toFloat(),
+						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
+						valueRange = 15f..120f
+					)
+					Button(onClick = {
+						store.setIntervalMinutes(minutes)
+						val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
+						WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+							"comment-scan",
+							ExistingPeriodicWorkPolicy.UPDATE,
+							request
+						)
+						onMessage("Scheduled scanning every ${minutes} min")
+					}) { Text("Start scanning") }
+				}
+			}
+		}
+
+		// Status and metrics
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text("Status", style = MaterialTheme.typography.titleMedium)
+					Text("Connectors — Business/Creator: ${graphEnabled.value}, Personal: ${sessionEnabled.value}")
+					Text("LLM enabled: ${llmEnabled.value}")
+					val whenStr = if (lastScanAt == 0L) "never" else DateFormat.getDateTimeInstance().format(Date(lastScanAt))
+					Text("Last scan: ${whenStr} (total ${lastScanTotal}, flagged ${lastScanFlagged})")
+				}
+			}
+		}
+		item { MetricsCard() }
+
+		// Monitored posts last
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Monitored posts", style = MaterialTheme.typography.titleMedium)
+					if (monitoredUrls.value.isEmpty()) {
+						Text("No monitored posts. Add a public or owned post URL to monitor during each scan.")
+					} else {
+						monitoredUrls.value.forEachIndexed { idx, url ->
+							Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+								Text(url, modifier = Modifier.weight(1f))
+								Button(onClick = {
+									store.removeMonitoredUrlAt(idx)
+									monitoredUrls.value = store.getMonitoredUrls()
+									onMessage("Removed monitored URL")
+								}) { Text("Remove") }
+							}
+						}
+						Button(onClick = {
+							store.clearMonitoredUrls()
+							monitoredUrls.value = store.getMonitoredUrls()
+						}) { Text("Clear all") }
+					}
+					var newUrl by remember { mutableStateOf("") }
+					OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
+					Button(onClick = {
+						val u = newUrl.trim()
+						if (u.isNotEmpty()) {
+							store.addMonitoredUrl(u)
+							monitoredUrls.value = store.getMonitoredUrls()
+							newUrl = ""
+							onMessage("Added to monitor list")
+						}
+					}) { Text("Add post to monitor") }
+				}
+			}
+		}
 	}
 }

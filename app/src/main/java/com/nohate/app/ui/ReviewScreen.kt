@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.compose.material3.FilterChip
 
 @Composable
 fun ReviewScreen() {
@@ -40,6 +41,7 @@ fun ReviewScreen() {
 	val items = remember { mutableStateOf(store.getFlaggedItems()) }
 	val hidden = remember { mutableStateOf(store.getHiddenItems()) }
 	val clipboard = LocalClipboardManager.current
+	val showAll = remember { mutableStateOf(false) }
 
 	LaunchedEffect(Unit) {
 		items.value = store.getFlaggedItems()
@@ -47,8 +49,14 @@ fun ReviewScreen() {
 	}
 
 	Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-		Text("Review flagged comments", style = MaterialTheme.typography.titleLarge)
-		if (items.value.isEmpty()) {
+		Text("Review comments", style = MaterialTheme.typography.titleLarge)
+		Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+			FilterChip(selected = !showAll.value, onClick = { showAll.value = false }, label = { Text("Flagged only") })
+			FilterChip(selected = showAll.value, onClick = { showAll.value = true }, label = { Text("All last scan") })
+		}
+
+		val displayItems = if (showAll.value) store.getLastComments().map { com.nohate.app.data.FlaggedItem(text = it, sourceUrl = null) } else items.value
+		if (displayItems.isEmpty()) {
 			Text("Nothing to review.")
 			Text("Tips:")
 			Text("• Run a scan from Home")
@@ -67,14 +75,17 @@ fun ReviewScreen() {
 			}
 		} else {
 			Button(onClick = {
-				// Clear all
-				store.setFlaggedItems(emptyList())
-				items.value = emptyList()
+				if (showAll.value) {
+					store.setLastComments(emptyList())
+				} else {
+					store.setFlaggedItems(emptyList())
+					items.value = emptyList()
+				}
 			}) { Text("Clear all") }
 		}
 		LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-			items(items.value.size) { idx ->
-				val item = items.value[idx]
+			items(displayItems.size) { idx ->
+				val item = displayItems[idx]
 				ElevatedCard {
 					Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 						Text(item.text)
@@ -94,19 +105,35 @@ fun ReviewScreen() {
 									context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 								}) { Icon(Icons.Filled.Info, contentDescription = "Open") }
 							}
+							if (!showAll.value) {
+								IconButton(onClick = {
+									store.correctFalsePositive(idx)
+									items.value = store.getFlaggedItems()
+								}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
+								IconButton(onClick = {
+									store.hideFlaggedItemAt(idx)
+									items.value = store.getFlaggedItems()
+									// update hidden list below
+								}) { Icon(Icons.Filled.Visibility, contentDescription = "Hide") }
+								IconButton(onClick = {
+									store.removeFlaggedItemAt(idx)
+									items.value = store.getFlaggedItems()
+								}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+							}
+							// Report: open source URL or let user share to Instagram
 							IconButton(onClick = {
-								store.correctFalsePositive(idx)
-								items.value = store.getFlaggedItems()
-							}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
-							IconButton(onClick = {
-								store.hideFlaggedItemAt(idx)
-								items.value = store.getFlaggedItems()
-								hidden.value = store.getHiddenItems()
-							}) { Icon(Icons.Filled.Visibility, contentDescription = "Hide") }
-							IconButton(onClick = {
-								store.removeFlaggedItemAt(idx)
-								items.value = store.getFlaggedItems()
-							}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+								item.sourceUrl?.let { url ->
+									val view = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+									context.startActivity(view)
+								} ?: run {
+									val share = Intent(Intent.ACTION_SEND).apply {
+										type = "text/plain"
+										putExtra(Intent.EXTRA_TEXT, item.text)
+									}
+									context.startActivity(Intent.createChooser(share, "Report via Instagram"))
+								}
+								SecureStore(context).incReported()
+							}) { Icon(Icons.Filled.Info, contentDescription = "Report") }
 						}
 					}
 				}

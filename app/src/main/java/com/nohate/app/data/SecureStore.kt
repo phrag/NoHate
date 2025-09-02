@@ -164,6 +164,18 @@ class SecureStore(context: Context) {
 	}
 	fun clearPendingImportComments() { prefs.edit().remove(KEY_PENDING_IMPORT).apply() }
 
+	// Last scanned comments (for review-all)
+	fun setLastComments(comments: List<String>) {
+		val safe = comments.map { it.replace('\u0001', ' ') }
+		prefs.edit().putString(KEY_LAST_COMMENTS, safe.joinToString("\u0001")).apply()
+	}
+
+	fun getLastComments(): List<String> {
+		val raw = prefs.getString(KEY_LAST_COMMENTS, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').filter { it.isNotEmpty() }
+	}
+
 	// Monitored post URLs (public or owned)
 	fun getMonitoredUrls(): List<String> {
 		val raw = prefs.getString(KEY_MONITORED_URLS, "") ?: ""
@@ -388,5 +400,6 @@ class SecureStore(context: Context) {
 		private const val KEY_TRAIN_QUEUE = "train_queue"
 		private const val KEY_PENDING_IMPORT = "pending_import_comments"
 		private const val KEY_MONITORED_URLS = "monitored_post_urls"
+		private const val KEY_LAST_COMMENTS = "last_scanned_comments"
 	}
 }
