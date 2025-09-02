@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.nohate.app.data.SecureStore
+import kotlinx.coroutines.delay
 
 @Composable
 fun ConsoleScreen() {
@@ -25,7 +26,10 @@ fun ConsoleScreen() {
 	val logs = remember { mutableStateOf(store.getLogs()) }
 
 	LaunchedEffect(Unit) {
-		logs.value = store.getLogs()
+		while (true) {
+			logs.value = store.getLogs()
+			delay(1000)
+		}
 	}
 
 	Column(

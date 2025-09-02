@@ -99,6 +99,18 @@ class SecureStore(context: Context) {
 		addUserSafePhrase(text)
 	}
 
+	// Last scan stats
+	fun setLastScan(tsMillis: Long, total: Int, flagged: Int) {
+		prefs.edit()
+			.putLong(KEY_LAST_SCAN_AT, tsMillis)
+			.putInt(KEY_LAST_SCAN_TOTAL, total)
+			.putInt(KEY_LAST_SCAN_FLAGGED, flagged)
+			.apply()
+	}
+	fun getLastScanAt(): Long = prefs.getLong(KEY_LAST_SCAN_AT, 0L)
+	fun getLastScanTotal(): Int = prefs.getInt(KEY_LAST_SCAN_TOTAL, 0)
+	fun getLastScanFlagged(): Int = prefs.getInt(KEY_LAST_SCAN_FLAGGED, 0)
+
 	fun setFeatureEnabled(featureKey: String, enabled: Boolean) {
 		prefs.edit().putBoolean("feature_" + featureKey, enabled).apply()
 	}
@@ -200,5 +212,8 @@ class SecureStore(context: Context) {
 		private const val KEY_USE_LLM = "use_llm"
 		private const val KEY_FLAG_THRESHOLD = "flag_threshold"
 		private const val KEY_LOGS = "console_logs"
+		private const val KEY_LAST_SCAN_AT = "last_scan_at"
+		private const val KEY_LAST_SCAN_TOTAL = "last_scan_total"
+		private const val KEY_LAST_SCAN_FLAGGED = "last_scan_flagged"
 	}
 }

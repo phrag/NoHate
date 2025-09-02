@@ -23,6 +23,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.nohate.app.data.SecureStore
 import com.nohate.app.work.ScanWorker
+import java.text.DateFormat
+import java.util.Date
 import java.util.concurrent.TimeUnit
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Scaffold
@@ -131,15 +133,35 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 	var minutes by remember { mutableStateOf(store.getIntervalMinutes()) }
 	var flagged by remember { mutableStateOf(store.getFlaggedItems()) }
 	val clipboard = LocalClipboardManager.current
+	val graphEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_graph")) }
+	val sessionEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_session")) }
+	val llmEnabled = remember { mutableStateOf(store.isUseLlm()) }
+	var lastScanAt by remember { mutableStateOf(store.getLastScanAt()) }
+	var lastScanTotal by remember { mutableStateOf(store.getLastScanTotal()) }
+	var lastScanFlagged by remember { mutableStateOf(store.getLastScanFlagged()) }
 
 	LaunchedEffect(Unit) {
 		flagged = store.getFlaggedItems()
+		lastScanAt = store.getLastScanAt()
+		lastScanTotal = store.getLastScanTotal()
+		lastScanFlagged = store.getLastScanFlagged()
 	}
 
 	LazyColumn(
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
+		item {
+			ElevatedCard {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text("Status", style = MaterialTheme.typography.titleMedium)
+					Text("Connectors — Business/Creator: ${graphEnabled.value}, Personal: ${sessionEnabled.value}")
+					Text("LLM enabled: ${llmEnabled.value}")
+					val whenStr = if (lastScanAt == 0L) "never" else DateFormat.getDateTimeInstance().format(Date(lastScanAt))
+					Text("Last scan: ${whenStr} (total ${lastScanTotal}, flagged ${lastScanFlagged})")
+				}
+			}
+		}
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -179,7 +201,7 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 					Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
 					if (flagged.isEmpty()) {
-						Text("No flagged comments yet.")
+						Text("No flagged comments yet. Try running a manual scan or importing from a public URL via Local AI Training.")
 					} else {
 						flagged.forEachIndexed { idx, item ->
 							Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
