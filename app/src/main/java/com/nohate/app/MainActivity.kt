@@ -111,11 +111,11 @@ private fun App() {
 		NavHost(navController = nav, startDestination = startDest, modifier = Modifier.padding(padding)) {
 			composable("onboarding") { OnboardingScreen { nav.navigate("home") { popUpTo("onboarding") { inclusive = true } } } }
 			composable("home") { MainScreen(
-				onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } },
+				onMessage = { msg: String -> scope.launch { snackbarHostState.showSnackbar(message = msg) } },
 				onOpenManualTrain = { nav.navigate("manualTest") },
 				onOpenReview = { nav.navigate("review") }
 			) }
-			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }, onOpenOnboarding = { nav.navigate("onboarding") }) }
+			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg: String -> scope.launch { snackbarHostState.showSnackbar(message = msg) } }, onOpenOnboarding = { nav.navigate("onboarding") }) }
 			composable("manualTest") { ManualTestScreen(onOpenReview = { nav.navigate("review") }) }
 			composable("console") { ConsoleScreen() }
 			composable("review") { ReviewScreen() }
@@ -160,13 +160,36 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 	var lastScanAt by remember { mutableStateOf(store.getLastScanAt()) }
 	var lastScanTotal by remember { mutableStateOf(store.getLastScanTotal()) }
 	var lastScanFlagged by remember { mutableStateOf(store.getLastScanFlagged()) }
+    val monitoredUrls = remember { mutableStateOf(store.getMonitoredUrls()) }
+    val scanProgress = remember { mutableStateOf("") }
 
 	LaunchedEffect(Unit) {
 		flagged = store.getFlaggedItems()
 		lastScanAt = store.getLastScanAt()
 		lastScanTotal = store.getLastScanTotal()
 		lastScanFlagged = store.getLastScanFlagged()
+        monitoredUrls.value = store.getMonitoredUrls()
 	}
+
+    LaunchedEffect(true) {
+        while (true) {
+            val at = store.getLastScanAt()
+            val tot = store.getLastScanTotal()
+            val flg = store.getLastScanFlagged()
+            if (at != lastScanAt || tot != lastScanTotal || flg != lastScanFlagged) {
+                lastScanAt = at
+                lastScanTotal = tot
+                lastScanFlagged = flg
+                flagged = store.getFlaggedItems()
+            }
+            val recent = store.getLogs().takeLast(5)
+                .map { it.substringAfter(":", it).trim() }
+                .filter { it.startsWith("scan:") || it.startsWith("provider:") }
+                .takeLast(3)
+            scanProgress.value = if (recent.isNotEmpty()) recent.joinToString(" \u2022 ") else ""
+            delay(1000)
+        }
+    }
 
 	LazyColumn(
 		modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -189,6 +212,9 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 					Text("Scanning", style = MaterialTheme.typography.titleMedium)
 					Text(text = "Every ${minutes} min")
+                    if (scanProgress.value.isNotEmpty()) {
+                        Text(scanProgress.value)
+                    }
 					Slider(
 						value = minutes.toFloat(),
 						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
@@ -223,7 +249,19 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
 					Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
 					if (flagged.isEmpty()) {
-						Text("No flagged comments yet. Try running a manual scan or importing from a public URL via Local AI Training.")
+						Text("No flagged comments yet.")
+						Text("Tips:")
+						Text("• Tap Run now to scan recent comments")
+						Text("• Add a monitored post URL below to include in scans")
+						Text("• Use Local AI Training to import a public post or paste text")
+						Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+							Button(onClick = {
+								val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+								WorkManager.getInstance(context).enqueue(nowReq)
+								onMessage("Scan started")
+							}) { Text("Run scan now") }
+							Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
+						}
 					} else {
 						flagged.forEachIndexed { idx, item ->
 							Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -276,5 +314,41 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 				}
 			}
 		}
+        item {
+            ElevatedCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Monitored posts", style = MaterialTheme.typography.titleMedium)
+                    if (monitoredUrls.value.isEmpty()) {
+                        Text("No monitored posts. Add a public or owned post URL to monitor during each scan.")
+                    } else {
+                        monitoredUrls.value.forEachIndexed { idx, url ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(url, modifier = Modifier.weight(1f))
+                                Button(onClick = {
+                                    store.removeMonitoredUrlAt(idx)
+                                    monitoredUrls.value = store.getMonitoredUrls()
+                                    onMessage("Removed monitored URL")
+                                }) { Text("Remove") }
+                            }
+                        }
+                        Button(onClick = {
+                            store.clearMonitoredUrls()
+                            monitoredUrls.value = store.getMonitoredUrls()
+                        }) { Text("Clear all") }
+                    }
+                    var newUrl by remember { mutableStateOf("") }
+                    OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
+                    Button(onClick = {
+                        val u = newUrl.trim()
+                        if (u.isNotEmpty()) {
+                            store.addMonitoredUrl(u)
+                            monitoredUrls.value = store.getMonitoredUrls()
+                            newUrl = ""
+                            onMessage("Added to monitor list")
+                        }
+                    }) { Text("Add post to monitor") }
+                }
+            }
+        }
 	}
 }

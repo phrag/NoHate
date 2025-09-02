@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
+import androidx.work.OneTimeWorkRequestBuilder
 
 @Composable
 fun ReviewScreen() {
@@ -49,6 +50,21 @@ fun ReviewScreen() {
 		Text("Review flagged comments", style = MaterialTheme.typography.titleLarge)
 		if (items.value.isEmpty()) {
 			Text("Nothing to review.")
+			Text("Tips:")
+			Text("• Run a scan from Home")
+			Text("• Import a public post via Local AI Training")
+			val context = LocalContext.current
+			Button(onClick = {
+				val req = OneTimeWorkRequestBuilder<com.nohate.app.work.ScanWorker>().build()
+				androidx.work.WorkManager.getInstance(context).enqueue(req)
+			}) { Text("Run scan now") }
+			// Show last few scan logs for context
+			val store = remember { SecureStore(context) }
+			val recent = store.getLogs().takeLast(5).map { it.substringAfter(":", it).trim() }.filter { it.startsWith("scan:") || it.startsWith("provider:") }
+			if (recent.isNotEmpty()) {
+				Text("Recent:")
+				recent.forEach { Text(it) }
+			}
 		} else {
 			Button(onClick = {
 				// Clear all

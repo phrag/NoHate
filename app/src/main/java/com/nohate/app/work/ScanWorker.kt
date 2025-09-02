@@ -14,10 +14,53 @@ import com.nohate.app.llm.LlamaEngine
 import com.nohate.app.llm.LlmEngine
 import android.util.Log
 import com.nohate.app.data.FlaggedItem
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import android.app.PendingIntent
+import com.nohate.app.MainActivity
 
 class ScanWorker(
 	appContext: Context,	params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
+    private fun createForegroundInfo(text: String): androidx.work.ForegroundInfo {
+        val channelId = "scan_status"
+        val mgr = applicationContext.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (mgr.getNotificationChannel(channelId) == null) {
+                mgr.createNotificationChannel(NotificationChannel(channelId, "Scanning", NotificationManager.IMPORTANCE_LOW))
+            }
+        }
+        val openIntent = Intent(applicationContext, MainActivity::class.java)
+        val pendingOpen = PendingIntent.getActivity(applicationContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val notification: Notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("NoHate")
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .addAction(0, "View results", pendingOpen)
+            .build()
+        return androidx.work.ForegroundInfo(1001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+    }
+
+    private fun notifyDone(flagged: Int) {
+        val channelId = "scan_status"
+        val openIntent = Intent(applicationContext, MainActivity::class.java)
+        val pendingOpen = PendingIntent.getActivity(applicationContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle("NoHate")
+            .setContentText(if (flagged > 0) "Scan complete: flagged ${flagged}" else "Scan complete: no issues")
+            .setAutoCancel(true)
+            .addAction(0, "View results", pendingOpen)
+            .build()
+        NotificationManagerCompat.from(applicationContext).notify(1002, notification)
+    }
 	override suspend fun doWork(): Result {
 		val store = SecureStore(applicationContext)
 		val manual = inputData.getString(KEY_MANUAL_COMMENTS)
@@ -26,9 +69,26 @@ class ScanWorker(
 			manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
 		} else {
 			val provider: CommentProvider = selectProvider(store)
-			provider.fetchRecentComments()
+			val base = provider.fetchRecentComments()
+			// Also include monitored public post URLs
+			val extra = mutableListOf<String>()
+			val urls = store.getMonitoredUrls()
+			if (urls.isNotEmpty()) {
+				store.appendLog("scan:monitored urls=${urls.size}")
+				try {
+					urls.forEach { u ->
+						try {
+							extra += com.nohate.app.platform.PostImporter.fetchPublicComments(u, limit = 200)
+						} catch (t: Throwable) {
+							Log.w(TAG, "monitored fetch failed", t)
+						}
+					}
+				} catch (_: Throwable) { }
+			}
+			(base + extra).distinct()
 		}
 		store.appendLog("scan:start count=${comments.size}")
+		setForeground(createForegroundInfo("Scanning ${comments.size} comments"))
 		val userHate = store.getUserHatePhrases()
 		val userSafe = store.getUserSafePhrases()
 		val threshold = store.getFlagThreshold()
@@ -48,8 +108,15 @@ class ScanWorker(
 					Log.d(TAG, "llm used text='${comment.take(40)}' rules=${"%.2f".format(rulesScore)} tfl=${"%.2f".format(modelScore)} llm=${"%.2f".format(res.score)}")
 					finalScore = maxOf(finalScore, res.score)
 				}
-				val isFlagged = finalScore >= threshold
-				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged text='${comment.take(40)}'")
+				// Apply explicit user overrides last: user-hate forces flag, user-safe forces not-flag
+				val lc = comment.lowercase()
+				val hateOverride = userHate.any { it.isNotBlank() && lc.contains(it) }
+				val safeOverride = userSafe.any { it.isNotBlank() && lc.contains(it) }
+				var isFlagged = finalScore >= threshold
+				var overrideNote = ""
+				if (hateOverride) { isFlagged = true; overrideNote = " override=hate" }
+				else if (safeOverride) { isFlagged = false; overrideNote = " override=safe" }
+				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged${overrideNote} text='${comment.take(40)}'")
 				isFlagged
 			} catch (t: Throwable) {
 				Log.e(TAG, "classify error", t)
@@ -63,9 +130,11 @@ class ScanWorker(
 			store.enqueueTraining(flaggedTexts)
 			Log.d(TAG, "flagged saved count=${items.size}")
 			store.appendLog("scan:flagged count=${items.size}")
+			notifyDone(flagged = items.size)
 		} else {
 			Log.d(TAG, "no comments flagged")
 			store.appendLog("scan:flagged count=0")
+			notifyDone(flagged = 0)
 		}
 		val now = System.currentTimeMillis()
 		store.setLastScan(now, total = comments.size, flagged = flaggedTexts.size)

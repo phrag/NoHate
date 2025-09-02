@@ -1,4 +1,4 @@
-~package com.nohate.app.ui
+package com.nohate.app.ui
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -121,12 +121,16 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			} else onMessage?.invoke("LLM disabled")
 		})
 
+		Text("Why download? The tiny LLM double-checks borderline comments to reduce false positives.")
+		Text("Size: ~210 MB, stored on-device. No data leaves your phone.")
+		Text("Tip: Download on Wi‑Fi. CPU/battery are used only during scans.")
+
 		Text(if (modelPresent.value) "LLM model present" else "LLM model missing (~210 MB)")
 		if (!modelPresent.value) {
 			Button(onClick = {
 				if (downloading.value) return@Button
 				downloading.value = true
-				downloadMsg.value = "Resolving model and downloading..."
+				downloadMsg.value = "Resolving model and downloading (~210 MB, Wi‑Fi recommended)..."
 				CoroutineScope(Dispatchers.IO).launch {
 					val ok = LlmDownloader.resolveAndDownload(
 						context,
@@ -138,7 +142,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 					store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
 					onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
 				}
-			}, enabled = !downloading.value) { Text("Resolve + Download TinyLlama (Q4_K_M)") }
+			}, enabled = !downloading.value) { Text("Resolve + Download (~210 MB, Wi‑Fi)") }
 			if (downloadMsg.value.isNotEmpty()) Text(downloadMsg.value)
 		}
 
@@ -146,13 +150,13 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			AlertDialog(
 				onDismissRequest = { showLlmPrompt.value = false },
 				title = { Text("Download LLM model") },
-				text = { Text("LLM is enabled but the model file is missing. Download TinyLlama (Q4_K_M) now? ~210 MB") },
+				text = { Text("The tiny LLM helps with borderline cases to improve accuracy. Download size is ~210 MB. Stored on-device; no data is sent to servers. Recommended on Wi‑Fi.") },
 				confirmButton = {
 					TextButton(onClick = {
 						showLlmPrompt.value = false
 						if (!downloading.value) {
 							downloading.value = true
-							downloadMsg.value = "Resolving model and downloading..."
+							downloadMsg.value = "Resolving model and downloading (~210 MB, Wi‑Fi recommended)..."
 							CoroutineScope(Dispatchers.IO).launch {
 								val ok = LlmDownloader.resolveAndDownload(
 									context,
@@ -165,7 +169,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 								onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
 							}
 						}
-					}) { Text("Resolve + Download") }
+					}) { Text("Resolve + Download (~210 MB)") }
 				},
 				dismissButton = { TextButton(onClick = { showLlmPrompt.value = false }) { Text("Later") } }
 			)

@@ -82,3 +82,7 @@ build_and_install
 launch_app
 
 echo "App launched on device/emulator."
+
+cp app/build/outputs/apk/debug/app-debug.apk ./app-debug.apk
+
+echo "App debug APK copied to ./app-debug.apk"
