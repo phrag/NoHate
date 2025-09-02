@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,6 +31,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Delete
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.navigation.compose.NavHost
@@ -46,6 +51,12 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.foundation.clickable
+import com.nohate.app.ui.ConsoleScreen
+import android.content.Intent
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,6 +89,9 @@ private fun App() {
 					IconButton(onClick = { nav.navigate("manualTest") }) {
 						Icon(Icons.Filled.School, contentDescription = "Local AI Training")
 					}
+					IconButton(onClick = { nav.navigate("console") }) {
+						Icon(Icons.Filled.Info, contentDescription = "Console")
+					}
 					IconButton(onClick = { nav.navigate("settings") }) {
 						Icon(Icons.Filled.Settings, contentDescription = "Settings")
 					}
@@ -101,19 +115,21 @@ private fun App() {
 			) }
 			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }) }
 			composable("manualTest") { ManualTestScreen() }
+			composable("console") { ConsoleScreen() }
 		}
 	}
 }
 
 @Composable
 private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Unit) {
-	val context = androidx.compose.ui.platform.LocalContext.current
+	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	var minutes by remember { mutableStateOf(store.getIntervalMinutes()) }
-	var flagged by remember { mutableStateOf(store.getFlaggedComments()) }
+	var flagged by remember { mutableStateOf(store.getFlaggedItems()) }
+	val clipboard = LocalClipboardManager.current
 
 	LaunchedEffect(Unit) {
-		flagged = store.getFlaggedComments()
+		flagged = store.getFlaggedItems()
 	}
 
 	LazyColumn(
@@ -158,8 +174,35 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 					if (flagged.isEmpty()) {
 						Text("No flagged comments yet.")
 					} else {
-						// Render flagged comments without a nested LazyColumn to avoid nested scrollables
-						flagged.forEach { c -> Text("• ${c}") }
+						flagged.forEachIndexed { idx, item ->
+							Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+								Text("• ${item.text}")
+								Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+									IconButton(onClick = {
+										clipboard.setText(AnnotatedString(item.text))
+										onMessage("Copied to clipboard")
+									}) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy") }
+									IconButton(onClick = {
+										val share = Intent(Intent.ACTION_SEND).apply {
+											type = "text/plain"
+											putExtra(Intent.EXTRA_TEXT, item.text)
+										}
+										context.startActivity(Intent.createChooser(share, "Share comment"))
+									}) { Icon(Icons.Filled.Share, contentDescription = "Share") }
+									item.sourceUrl?.let { url ->
+										IconButton(onClick = {
+											val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+											context.startActivity(intent)
+										}) { Icon(Icons.Filled.Info, contentDescription = "Open") }
+									}
+									IconButton(onClick = {
+										store.removeFlaggedItemAt(idx)
+										flagged = store.getFlaggedItems()
+										onMessage("Removed")
+									}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+								}
+							}
+						}
 					}
 				}
 			}

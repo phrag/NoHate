@@ -16,6 +16,15 @@ import androidx.compose.ui.unit.dp
 import com.nohate.app.NativeClassifier
 import androidx.compose.ui.platform.LocalContext
 import com.nohate.app.data.SecureStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.nohate.app.platform.PostImporter
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.nohate.app.work.ScanWorker
 
 @Composable
 fun ManualTestScreen() {
@@ -24,6 +33,8 @@ fun ManualTestScreen() {
 	val input = remember { mutableStateOf("") }
 	val score = remember { mutableStateOf<Float?>(null) }
 	val error = remember { mutableStateOf<String?>(null) }
+	val manualComments = remember { mutableStateOf("") }
+	val postUrl = remember { mutableStateOf("") }
 
 	Column(
 		modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -66,5 +77,40 @@ fun ManualTestScreen() {
 			Text("Score: ${"%.2f".format(it)} — ${if (flagged) "Flagged as hate" else "Not hate"}")
 		}
 		error.value?.let { Text("Error: ${it}") }
+
+		Text("Manual comments (one per line)")
+		OutlinedTextField(value = manualComments.value, onValueChange = { manualComments.value = it }, minLines = 3)
+		Button(onClick = {
+			val payload = manualComments.value.trim()
+			if (payload.isNotEmpty()) {
+				val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload)
+				val req = OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
+				WorkManager.getInstance(context).enqueueUniqueWork("manual_scan", ExistingWorkPolicy.REPLACE, req)
+				store.appendLog("scan:enqueue manual count=${payload.lines().size}")
+			}
+		}) { Text("Run manual scan") }
+
+		Text("Public Instagram post URL")
+		OutlinedTextField(value = postUrl.value, onValueChange = { postUrl.value = it }, minLines = 1)
+		Button(onClick = {
+			val url = postUrl.value.trim()
+			if (url.isNotEmpty()) {
+				store.appendLog("import:url ${url}")
+				CoroutineScope(Dispatchers.IO).launch {
+					val comments = PostImporter.fetchPublicComments(url, limit = 50)
+					if (comments.isEmpty()) {
+						store.appendLog("import:empty")
+					} else {
+						val payload = comments.joinToString("\u0001")
+						val data = workDataOf(ScanWorker.KEY_MANUAL_COMMENTS to payload, ScanWorker.KEY_SOURCE_URL to url)
+						WorkManager.getInstance(context).enqueueUniqueWork(
+							"manual_scan", ExistingWorkPolicy.REPLACE,
+							OneTimeWorkRequestBuilder<ScanWorker>().setInputData(data).build()
+						)
+						store.appendLog("import:ok count=${comments.size}")
+					}
+				}
+			}
+		}) { Text("Fetch from URL + scan") }
 	}
 }
