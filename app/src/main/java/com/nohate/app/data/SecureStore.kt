@@ -99,6 +99,57 @@ class SecureStore(context: Context) {
 		addUserSafePhrase(text)
 	}
 
+	// Hidden items
+	fun getHiddenItems(): List<FlaggedItem> {
+		val raw = prefs.getString(KEY_HIDDEN_V2, "") ?: ""
+		if (raw.isEmpty()) return emptyList()
+		return raw.split('\u0001').filter { it.isNotEmpty() }.map { entry ->
+			val p = entry.split('\u0002')
+			val text = p.getOrNull(0) ?: ""
+			val url = p.getOrNull(1)?.ifBlank { null }
+			FlaggedItem(text, url)
+		}
+	}
+
+	fun setHiddenItems(items: List<FlaggedItem>) {
+		val serialized = items.takeLast(500).joinToString("\u0001") { item ->
+			val safeText = item.text.replace('\u0001', ' ').replace('\u0002', ' ')
+			val safeUrl = (item.sourceUrl ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
+			"${safeText}\u0002${safeUrl}"
+		}
+		prefs.edit().putString(KEY_HIDDEN_V2, serialized).apply()
+	}
+
+	fun appendHiddenItems(newOnes: List<FlaggedItem>) {
+		if (newOnes.isEmpty()) return
+		val merged = (getHiddenItems() + newOnes).takeLast(500)
+		setHiddenItems(merged)
+	}
+
+	fun removeHiddenItemAt(index: Int) {
+		val current = getHiddenItems().toMutableList()
+		if (index in current.indices) {
+			current.removeAt(index)
+			setHiddenItems(current)
+		}
+	}
+
+	fun hideFlaggedItemAt(index: Int) {
+		val items = getFlaggedItems().toMutableList()
+		if (index !in items.indices) return
+		val item = items.removeAt(index)
+		setFlaggedItems(items)
+		appendHiddenItems(listOf(item))
+	}
+
+	fun unhideHiddenItemAt(index: Int) {
+		val hidden = getHiddenItems().toMutableList()
+		if (index !in hidden.indices) return
+		val item = hidden.removeAt(index)
+		setHiddenItems(hidden)
+		appendFlaggedItems(listOf(item))
+	}
+
 	// Last scan stats
 	fun setLastScan(tsMillis: Long, total: Int, flagged: Int) {
 		prefs.edit()
@@ -205,6 +256,7 @@ class SecureStore(context: Context) {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments" // legacy text-only
 		private const val KEY_FLAGGED_V2 = "flagged_items_v2" // text + url
+		private const val KEY_HIDDEN_V2 = "hidden_items_v2"
 		private const val KEY_ONBOARDED = "onboarding_complete"
 		private const val KEY_USER_HATE = "user_hate_phrases"
 		private const val KEY_USER_SAFE = "user_safe_phrases"

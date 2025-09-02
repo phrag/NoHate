@@ -30,16 +30,19 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Visibility
 
 @Composable
 fun ReviewScreen() {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	val items = remember { mutableStateOf(store.getFlaggedItems()) }
+	val hidden = remember { mutableStateOf(store.getHiddenItems()) }
 	val clipboard = LocalClipboardManager.current
 
 	LaunchedEffect(Unit) {
 		items.value = store.getFlaggedItems()
+		hidden.value = store.getHiddenItems()
 	}
 
 	Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -80,9 +83,39 @@ fun ReviewScreen() {
 								items.value = store.getFlaggedItems()
 							}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
 							IconButton(onClick = {
+								store.hideFlaggedItemAt(idx)
+								items.value = store.getFlaggedItems()
+								hidden.value = store.getHiddenItems()
+							}) { Icon(Icons.Filled.Visibility, contentDescription = "Hide") }
+							IconButton(onClick = {
 								store.removeFlaggedItemAt(idx)
 								items.value = store.getFlaggedItems()
 							}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+						}
+					}
+				}
+			}
+		}
+
+		Text("Hidden", style = MaterialTheme.typography.titleMedium)
+		if (hidden.value.isEmpty()) {
+			Text("No hidden items.")
+		} else {
+			Button(onClick = { store.setHiddenItems(emptyList()); hidden.value = emptyList() }) { Text("Clear hidden") }
+			LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+				items(hidden.value.size) { idx ->
+					val item = hidden.value[idx]
+					ElevatedCard {
+						Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+							Text(item.text)
+							Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+								IconButton(onClick = {
+									store.unhideHiddenItemAt(idx)
+									hidden.value = store.getHiddenItems()
+									items.value = store.getFlaggedItems()
+								}) { Icon(Icons.Filled.Visibility, contentDescription = "Unhide") }
+								IconButton(onClick = { store.removeHiddenItemAt(idx); hidden.value = store.getHiddenItems() }) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
+							}
 						}
 					}
 				}
