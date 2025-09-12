@@ -1,44 +1,66 @@
 
-# NoHate (Android + Rust, fully on-device)
+# NoHate – Private, On-Device social media comment scanning and training (Android)
 
+NoHate is a privacy-first Android app that helps you monitor Instagram post comments for harmful content and teach the app how to get better over time. Everything runs on your device: fetching, detection, review, and learning. No servers, no analytics, no comment text leaves your phone.
 
-Privacy-first mobile app that scans your own social media comments on-device and helps you flag and remove hate speech. No comment text leaves the device; all inference and incremental learning stay local.
+## How it works (for everyone)
 
-## Quick start
-- Open in Android Studio (macOS): `./scripts/open_android_studio.sh`
-- Run on emulator/device: `./scripts/run_on_emulator.sh`
-- Build native Rust libs: `./scripts/build_rust_android.sh`
+- What it does
+  - Scan comments on a post (your own or a public post) and surface likely harmful ones.
+  - Let you review results quickly, copy/share/open the source, or hide/delete/report when appropriate.
+  - Teach the app as you go: mark items as harmful or okay. It learns your preferences on-device.
 
-## How we do it
-- Instagram Business/Creator (official, compliant)
-  - Auth: OAuth + PKCE in a secure browser (Custom Tabs) → deep link back.
-  - Scopes: Minimal (read/manage comments on your media only).
-  - Tokens: Stored in hardware-backed encrypted storage; no app secret bundled; re-login when needed (no server-side token exchange).
-  - Network: Only instagram/facebook Graph endpoints; cleartext disabled.
+- Where to find things in the app
+  - Home: See connection status, quick actions, last scan stats, and model progress. Live progress shows while a scan runs.
+  - Review: Browse flagged comments or switch to “All last scan” to see everything found. Take actions (copy, share, open, report, hide/delete on owned posts) and label as Not hate / Flag as hate / Mark safe.
+  - Train: Enter your own test text or paste a public Instagram URL to fetch comments for training. Progress bars and live status guide you.
+  - Console: A simple in‑app log view so you can see what’s happening during scans (providers used, counts, decisions).
+  - Settings: Enable/disable the on-device LLM, download the model, set the flagging threshold, configure scan options like max comments per URL, start the setup wizard, and more.
 
-- Instagram Personal (session-only, opt-in)
-  - Auth: Isolated WebView login using an ephemeral cookie store; extract only required session cookies for `instagram.com` and purge WebView storage afterward.
-  - Storage: Session cookies sealed with hardware-backed keys; access gated by device unlock/biometric.
-  - Network: Strict allowlist of endpoints; no third-party calls; no analytics/telemetry.
-  - Transparency: Clear ToS warning and explicit user consent before enabling; one-tap disable + secure wipe.
+- Scanning a post
+  - Paste a public Instagram post or reel URL in Train to fetch comments. The app fetches in pages and respects a configurable cap (default 200, adjustable in Settings).
+  - On Home, you can also “Run now” to scan according to your configured providers or monitored URLs.
+  - After a scan, you’re guided to Review to see results.
 
-## Security & privacy guarantees
-- On-device only: No tokens, cookies, comments, or labels leave the device.
-- Hardware-backed encryption: Android EncryptedSharedPreferences with StrongBox where available; biometric gate for sensitive actions.
-- Process isolation: Auth flows in an isolated process; WebView data cleared post-login; least-privilege API surfaces.
-- Network hardening: Cleartext off; strict endpoint allowlist; optional TLS pinning for platform endpoints (with safe rollover).
-- Integrity checks: Option to block or degrade sensitive features on compromised devices.
-- Data minimization: Fetch only your post comments; store only what’s needed (tokens, minimal metadata); local-only logs with redaction.
+- Teaching the app
+  - If a flagged item isn’t harmful, tap “Not hate” (prevents re-flagging and updates the safe list).
+  - In “All last scan”, use “Flag as hate” to promote an unflagged item to flagged (and enqueue for training), or “Mark safe” to teach that phrase is okay.
+  - A real-time popup can appear when items are flagged so you can label immediately.
 
-## Architecture
-- Android app (Kotlin, Jetpack Compose, WorkManager, Navigation Compose)
-- Rust core crate (`rust/core`) compiled to `.so` with `cargo-ndk`
-- Kotlin JNI wrapper `NativeClassifier` loads `libnohcore.so`
-- Provider abstraction for platforms (Instagram Business/Creator via Graph; Instagram Personal via on-device session)
+- On-device privacy
+  - Your labels, comments, and models are stored locally with hardware-backed encryption where available.
+  - No comment text or labels are uploaded anywhere. The app has no telemetry.
 
-## Local AI Training
-- Train on your device by labeling examples as hate/not hate in the “Local AI Training” screen.
-- Your labels are stored encrypted and used to adjust detection (no cloud).
+- About the on-device LLM
+  - Optionally use a tiny local language model (TinyLlama GGUF) to double‑check borderline cases.
+  - If enabled and downloaded, the LLM runs fully on-device via llama.cpp (no internet). You’ll be prompted to download it in onboarding or Settings with size estimates and Wi‑Fi guidance.
+
+## Technical details (for developers)
+
+### Architecture overview
+- Kotlin + Jetpack Compose UI; Navigation Compose + bottom navigation.
+- WorkManager scan pipeline with Android 14+ foreground service type `dataSync`.
+- `SecureStore` (EncryptedSharedPreferences) holds thresholds, flags/hidden, user hate/safe lexicons, training queue, scan history, last-scan comments, monitored URLs, console logs, metrics (including cumulative total processed), and progress.
+- Models: small TFLite classifier first; optional on-device LLM (llama.cpp) only for borderline scores.
+
+### Comment sources
+- Public URL importer `PostImporter` paginates comments (GraphQL pattern) up to a configurable cap (Settings → Max comments per URL). Falls back to parsing embedded JSON if needed.
+- Provider abstraction scaffolds Business/Creator Graph and personal-session sources.
+
+### ScanWorker flow
+- Accepts manual text and/or `source_url` or uses providers + monitored URLs.
+- Saves last-scan snapshot for the Review “All last scan” tab and updates live progress.
+- Per-comment decisions combine user lexicons, TFLite score, optional LLM assist near threshold, and explicit overrides.
+- Dedupes new flags against existing flags/hidden; enqueues training; writes stats and history.
+
+### Review actions
+- Copy, Share, Open (source URL), Report (deep-links to Instagram app or browser).
+- Not hate, Hide, Delete (flagged tab). In “All last scan”: Flag as hate, Mark safe.
+- When authorized and a `commentId` is known, Hide/Delete via Graph API (encrypted token).
+
+### On-device LLM
+- JNI bridge (`llamabridge.cpp`) to llama.cpp; Kotlin `LlamaEngine` mediates availability and calls.
+- `LlmDownloader` resolves TinyLlama on Hugging Face and downloads with resume and checksum to `files/llm/`.
 
 ## Local dev setup
 1) Prereqs
