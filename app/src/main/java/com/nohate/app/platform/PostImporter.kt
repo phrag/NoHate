@@ -8,23 +8,33 @@ import java.net.URL
 object PostImporter {
 	private const val TAG = "PostImporter"
 
-	fun fetchPublicComments(postUrl: String, limit: Int = 50): List<String> {
+	fun fetchPublicComments(postUrl: String, limit: Int = 50, cookies: String? = null): List<String> {
 		return try {
 			val url = postUrl.trim()
 			val short = extractShortcode(url)
 			if (short == null) {
-				val html = httpGet(url)
+				val html = httpGet(url, cookies)
 				val fromHtml = if (html != null) extractFromHtml(html, limit) else emptyList()
 				return fromHtml.take(limit)
 			}
-			fetchPaginated(short, limit)
+			// Try GraphQL pagination first
+			val paged = fetchPaginated(short, limit, cookies)
+			if (paged.isNotEmpty()) return paged
+			// Fallback 1: JSON endpoint embedded data
+			val jsonA = httpGet("https://www.instagram.com/p/${short}/?__a=1&__d=dis", cookies)
+			val fromJson = if (!jsonA.isNullOrEmpty()) extractFromJson(jsonA, limit) else emptyList()
+			if (fromJson.isNotEmpty()) return fromJson.take(limit)
+			// Fallback 2: scrape HTML if needed
+			val html = httpGet("https://www.instagram.com/p/${short}/", cookies)
+			val fromHtml = if (!html.isNullOrEmpty()) extractFromHtml(html, limit) else emptyList()
+			fromHtml.take(limit)
 		} catch (t: Throwable) {
 			Log.e(TAG, "import error", t)
 			emptyList()
 		}
 	}
 
-	private fun httpGet(urlStr: String): String? {
+	private fun httpGet(urlStr: String, cookies: String? = null): String? {
 		return try {
 			val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
 				connectTimeout = 15000
@@ -33,6 +43,11 @@ object PostImporter {
 				instanceFollowRedirects = true
 				setRequestProperty("User-Agent", "Mozilla/5.0 (Android) NoHate/1.0")
 				setRequestProperty("Accept", "text/html,application/json")
+				setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+				if (!cookies.isNullOrBlank()) {
+					setRequestProperty("Cookie", cookies)
+					setRequestProperty("Referer", "https://www.instagram.com/")
+				}
 				connect()
 			}
 			if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.reader().readText() }
@@ -73,7 +88,7 @@ object PostImporter {
 		} catch (_: Throwable) { emptyList() }
 	}
 
-	private fun fetchPaginated(shortcode: String, limit: Int): List<String> {
+	private fun fetchPaginated(shortcode: String, limit: Int, cookies: String? = null): List<String> {
 		val out = mutableListOf<String>()
 		var endCursor: String? = null
 		var hasNext = true
@@ -86,7 +101,7 @@ object PostImporter {
 				"after" to (endCursor ?: JSONObject.NULL)
 			)).toString()
 			val url = base + java.net.URLEncoder.encode(variables, "UTF-8")
-			val json = httpGet(url) ?: break
+			val json = httpGet(url, cookies) ?: break
 			try {
 				val root = JSONObject(json)
 				val edges = root.optJSONObject("data")

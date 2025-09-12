@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -56,6 +59,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
 import com.nohate.app.ui.theme.NoHateTheme
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.text.style.TextOverflow
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -163,6 +172,7 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
     val scanTotal = remember { mutableStateOf(store.getScanProgressTotal()) }
     val scanDone = remember { mutableStateOf(store.getScanProgressDone()) }
     val scanMsg = remember { mutableStateOf(store.getScanProgressMsg()) }
+    var sessionActive by remember { mutableStateOf(store.getSessionCookies("instagram") != null) }
 
 	LaunchedEffect(Unit) {
 		flagged = store.getFlaggedItems()
@@ -192,82 +202,46 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
             scanTotal.value = store.getScanProgressTotal()
             scanDone.value = store.getScanProgressDone()
             scanMsg.value = store.getScanProgressMsg()
+            sessionActive = store.getSessionCookies("instagram") != null
             delay(1000)
         }
     }
 
-	LazyColumn(
-		contentPadding = PaddingValues(bottom = 80.dp),
-		modifier = Modifier.fillMaxSize().padding(16.dp),
-		verticalArrangement = Arrangement.spacedBy(16.dp)
+	LazyVerticalGrid(
+		columns = GridCells.Fixed(2),
+		contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 64.dp),
+		modifier = Modifier.fillMaxSize(),
+		horizontalArrangement = Arrangement.spacedBy(12.dp),
+		verticalArrangement = Arrangement.spacedBy(12.dp)
 	) {
-		// Minimal top actions
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-					Text("Quick Actions", style = MaterialTheme.typography.titleLarge)
-					FilledTonalButton(onClick = {
-                            val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
-                            WorkManager.getInstance(context).enqueue(nowReq)
-                            onMessage("Scan started")
-                    }) { Text("Run scan now") }
-					Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-						TextButton(onClick = onOpenReview) { Text("Review") }
-						TextButton(onClick = onOpenManualTrain) { Text("Teach AI") }
-					}
-				}
-			}
-		}
-
-		// Flagged preview
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Recent flagged", style = MaterialTheme.typography.titleLarge)
-					val preview = flagged.take(3)
-					if (preview.isEmpty()) Text("None yet. Run a scan.") else preview.forEach { item -> Text("• ${item.text}") }
-					TextButton(onClick = onOpenReview) { Text("Open Review") }
-				}
-			}
-		}
-		// Scanning controls
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text("Live scan", style = MaterialTheme.typography.titleLarge)
-					if (scanTotal.value > 0) {
-						LinearProgressIndicator(progress = (scanDone.value.coerceAtMost(scanTotal.value)).toFloat() / scanTotal.value.toFloat())
-						Text("${scanMsg.value} (${scanDone.value}/${scanTotal.value})")
-					} else Text("Idle")
-					Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Every ${minutes} min") })
-						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("LLM ${if (llmEnabled.value) "on" else "off"}") })
-					}
-				}
-			}
-		}
-
-		// Status and metrics
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text("Recent metrics", style = MaterialTheme.typography.titleLarge)
+		// Live stats (moved to top)
+		item(span = { GridItemSpan(2) }) {
+			ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+				Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text("Live stats", style = MaterialTheme.typography.titleMedium)
 					val whenStr = if (lastScanAt == 0L) "never" else DateFormat.getDateTimeInstance().format(Date(lastScanAt))
 					Text("Last scan: ${whenStr}")
 					Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Total ${lastScanTotal}") })
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Scanned ${lastScanTotal}") })
 						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Flagged ${lastScanFlagged}") })
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("LLM ${if (llmEnabled.value) "on" else "off"}") })
+                        androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (sessionActive) "Session on" else "Session off") })
+					}
+					if (scanTotal.value > 0) {
+						LinearProgressIndicator(progress = (scanDone.value.coerceAtMost(scanTotal.value)).toFloat() / scanTotal.value.toFloat())
+						Text("${scanMsg.value} (${scanDone.value}/${scanTotal.value})")
+					} else {
+						Text("Idle")
 					}
 				}
 			}
 		}
-		item { MetricsCard() }
 
-		// Monitored posts last
-		item {
-			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Monitored posts", style = MaterialTheme.typography.titleLarge)
+		// Monitored posts (moved up to align with Quick Actions)
+		item(span = { GridItemSpan(2) }) {
+			ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+				Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Monitored posts", style = MaterialTheme.typography.titleMedium)
 					if (monitoredUrls.value.isEmpty()) {
 						Text("No monitored posts. Add a public or owned post URL to monitor during each scan.")
 					} else {
@@ -282,23 +256,66 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 							}
 						}
 						FilledTonalButton(onClick = {
-                            store.clearMonitoredUrls()
-                            monitoredUrls.value = store.getMonitoredUrls()
-                        }) { Text("Clear all") }
-                    }
-                    var newUrl by remember { mutableStateOf("") }
-                    OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
-                    FilledTonalButton(onClick = {
-                        val u = newUrl.trim()
-                        if (u.isNotEmpty()) {
-                            store.addMonitoredUrl(u)
-                            monitoredUrls.value = store.getMonitoredUrls()
-                            newUrl = ""
-                            onMessage("Added to monitor list")
-                        }
-                    }) { Text("Add post to monitor") }
-                }
-            }
-        }
-    }
+							store.clearMonitoredUrls()
+							monitoredUrls.value = store.getMonitoredUrls()
+						}) { Text("Clear all") }
+					}
+					var newUrl by remember { mutableStateOf("") }
+					OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
+					FilledTonalButton(onClick = {
+						val u = newUrl.trim()
+						if (u.isNotEmpty()) {
+							store.addMonitoredUrl(u)
+							monitoredUrls.value = store.getMonitoredUrls()
+							newUrl = ""
+							onMessage("Added to monitor list")
+						}
+					}) { Text("Add post to monitor") }
+				}
+			}
+		}
+
+		// Minimal top actions
+		item(span = { GridItemSpan(2) }) {
+			ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+				Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+					Text("Quick Actions", style = MaterialTheme.typography.titleMedium)
+					val isMonitoring = remember { mutableStateOf(false) }
+					Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+						androidx.compose.material3.AssistChip(onClick = {
+							val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+							WorkManager.getInstance(context).enqueue(nowReq)
+							onMessage("Scan started")
+						}, label = { Text("Scan now") })
+						androidx.compose.material3.AssistChip(onClick = {
+							if (!isMonitoring.value) {
+								store.setIntervalMinutes(minutes)
+								val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
+								WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+									"comment-scan",
+									ExistingPeriodicWorkPolicy.UPDATE,
+									request
+								)
+								isMonitoring.value = true
+								onMessage("Monitoring every ${minutes} min")
+							} else {
+								WorkManager.getInstance(context).cancelUniqueWork("comment-scan")
+								isMonitoring.value = false
+								onMessage("Monitoring stopped")
+							}
+						}, label = { Text(if (isMonitoring.value) "Stop" else "Monitor ${minutes}m") })
+						androidx.compose.material3.AssistChip(onClick = onOpenReview, label = { Text("Review") })
+					}
+				}
+			}
+		}
+
+		// Removed Recent flagged tile (preview now shown inside Live stats)
+
+		// Live scan merged into Live stats above
+
+		// (duplicate Live stats card removed)
+
+		// Monitored posts last
+	}
 }

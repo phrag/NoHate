@@ -135,7 +135,7 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 					isBusy.value = true
 					status.value = "Fetching URL..."
 					store.appendLog("import:url ${url}")
-					val comments = withContext(Dispatchers.IO) { PostImporter.fetchPublicComments(url, limit = 200) }
+					val comments = withContext(Dispatchers.IO) { PostImporter.fetchPublicComments(url, limit = 200, cookies = store.getSessionCookies("instagram")) }
 					if (comments.isEmpty()) {
 						status.value = "No comments fetched (private/visibility or parsing)"
 						store.appendLog("import:empty")

@@ -72,7 +72,11 @@ class ScanWorker(
 			!sourceUrl.isNullOrBlank() -> {
 				store.appendLog("scan:url ${sourceUrl}")
 				try {
-					com.nohate.app.platform.PostImporter.fetchPublicComments(sourceUrl!!, limit = store.getMaxCommentsPerUrl())
+					com.nohate.app.platform.PostImporter.fetchPublicComments(
+						sourceUrl!!,
+						limit = store.getMaxCommentsPerUrl(),
+						cookies = store.getSessionCookies("instagram")
+					)
 				} catch (t: Throwable) {
 					Log.w(TAG, "url fetch failed", t)
 					emptyList()
@@ -89,7 +93,11 @@ class ScanWorker(
 					try {
 						urls.forEach { u ->
 							try {
-								extra += com.nohate.app.platform.PostImporter.fetchPublicComments(u, limit = 200)
+								extra += com.nohate.app.platform.PostImporter.fetchPublicComments(
+									u,
+									limit = store.getMaxCommentsPerUrl(),
+									cookies = store.getSessionCookies("instagram")
+								)
 							} catch (t: Throwable) {
 								Log.w(TAG, "monitored fetch failed", t)
 							}
