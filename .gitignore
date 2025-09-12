@@ -26,5 +26,4 @@ app/.cxx/
 
 # Misc
 .DS_Store
-app-debug.apk
-/nohate
+*.apk

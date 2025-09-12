@@ -35,6 +35,28 @@ NoHate is a privacy-first Android app that helps you monitor Instagram post comm
   - Optionally use a tiny local language model (TinyLlama GGUF) to double‑check borderline cases.
   - If enabled and downloaded, the LLM runs fully on-device via llama.cpp (no internet). You’ll be prompted to download it in onboarding or Settings with size estimates and Wi‑Fi guidance.
 
+### LLM model details (what, why, and when it runs)
+- Model: TinyLlama (1.1B) converted to GGUF and quantized (typically Q4_K_M) for mobile CPUs.
+  - Size on disk: ~180–230 MB depending on quantization.
+  - Memory at runtime: ~350–600 MB plus context; suitable for mid‑range 2022+ devices.
+- Why a tiny LLM?
+  - It is not the primary classifier. The small TFLite model is faster and runs first.
+  - The LLM only “sanity‑checks” comments whose scores fall inside a narrow band near your threshold to reduce false positives without scanning everything.
+- When it runs:
+  - The TFLite/rules score is computed first.
+  - If the final score is within a band around your flagging threshold (computed from your calibration counters), we ask TinyLlama for a second opinion and combine the scores.
+  - This keeps battery impact low while improving precision on ambiguous phrasing.
+- Privacy guarantees:
+  - Prompts and comments never leave the device; llama.cpp runs locally.
+  - The downloaded model file is stored in the app’s private storage and can be removed at any time in Settings.
+- Prompt strategy and calibration:
+  - The prompt instructs the LLM to answer with a compact numeric “risk” score informed by brief examples. It avoids subjective explanations to keep latency low and outputs deterministic‑ish structure.
+  - The “calibration band” around the threshold widens or narrows based on how often you mark things as hate vs safe, so the LLM is consulted only where it historically helps you.
+- Performance & tips:
+  - Expect ~15–60 ms/token on modern devices; most queries finish in under a second because we use very short prompts and few output tokens.
+  - If your device feels slow or warm, you can disable the LLM in Settings; the core classifier continues to work.
+  - If storage is tight, you can delete the model and re‑download later.
+
 ## Technical details (for developers)
 
 ### Architecture overview
