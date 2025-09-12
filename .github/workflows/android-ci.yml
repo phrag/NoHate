@@ -38,8 +38,8 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+      - name: Build debug and release APKs
+        run: ./gradlew :app:assembleDebug :app:assembleRelease --stacktrace --no-daemon
 
       - name: Lint
         run: ./gradlew :app:lint --stacktrace --no-daemon
@@ -47,10 +47,25 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
 
+      - name: Build release bundle (AAB)
+        run: ./gradlew :app:bundleRelease --stacktrace --no-daemon
+
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NoHate-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoHate-release-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Upload release AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoHate-release-aab
+          path: app/build/outputs/bundle/release/*.aab
 
 
