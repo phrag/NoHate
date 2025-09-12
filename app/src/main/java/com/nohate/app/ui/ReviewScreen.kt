@@ -153,6 +153,7 @@ fun ReviewScreen() {
 									store.appendFlaggedItems(listOf(com.nohate.app.data.FlaggedItem(text = text, sourceUrl = item.sourceUrl)))
 									store.enqueueTraining(listOf(text))
 								}) { Icon(Icons.Filled.Flag, contentDescription = "Flag as hate") }
+								TextButton(onClick = { store.addUserSafePhrase(item.text) }) { Text("Mark safe") }
 							}
 							// Report: open source URL or let user share to Instagram
 							IconButton(onClick = {
