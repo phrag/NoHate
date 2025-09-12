@@ -33,6 +33,8 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.nohate.app.work.ScanWorker
 import androidx.compose.runtime.rememberCoroutineScope
+import android.content.Intent
+import com.nohate.app.auth.SessionLoginActivity
 
 @Composable
 fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
@@ -128,6 +130,10 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 
 		Text("Import from a public Instagram post")
 		OutlinedTextField(value = postUrl.value, onValueChange = { postUrl.value = it }, minLines = 1, modifier = Modifier.fillMaxWidth())
+		if (store.getSessionCookies("instagram") == null) {
+			Text("Tip: Log in to Instagram (Settings → Personal session) to fetch many more comments.")
+			androidx.compose.material3.TextButton(onClick = { context.startActivity(Intent(context, SessionLoginActivity::class.java)) }) { Text("Log in now") }
+		}
 		androidx.compose.material3.FilledTonalButton(onClick = {
 			val url = postUrl.value.trim()
 			if (url.isNotEmpty()) {

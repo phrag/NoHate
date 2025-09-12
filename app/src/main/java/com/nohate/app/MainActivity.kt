@@ -296,14 +296,16 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 									ExistingPeriodicWorkPolicy.UPDATE,
 									request
 								)
+								// Immediate first scan
+								WorkManager.getInstance(context).enqueue(OneTimeWorkRequestBuilder<ScanWorker>().build())
 								isMonitoring.value = true
-								onMessage("Monitoring every ${minutes} min")
+								onMessage("Monitoring every ${minutes} min; first scan started")
 							} else {
 								WorkManager.getInstance(context).cancelUniqueWork("comment-scan")
 								isMonitoring.value = false
 								onMessage("Monitoring stopped")
 							}
-						}, label = { Text(if (isMonitoring.value) "Stop" else "Monitor ${minutes}m") })
+						}, label = { Text(if (isMonitoring.value) "Stop" else "Monitor", maxLines = 1, overflow = TextOverflow.Ellipsis) })
 						androidx.compose.material3.AssistChip(onClick = onOpenReview, label = { Text("Review") })
 					}
 				}
