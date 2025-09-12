@@ -426,6 +426,23 @@ class SecureStore(context: Context) {
 		prefs.edit().putInt(KEY_MAX_PER_URL, v).apply()
 	}
 
+	fun addCalibrationSample(label: String) {
+		val key = if (label == "hate") KEY_CAL_HATE else KEY_CAL_SAFE
+		val cur = prefs.getInt(key, 0)
+		prefs.edit().putInt(key, (cur + 1).coerceAtMost(100000)).apply()
+	}
+	fun getCalibrationCounts(): Pair<Int, Int> = prefs.getInt(KEY_CAL_HATE, 0) to prefs.getInt(KEY_CAL_SAFE, 0)
+
+	fun getLlmBandWidth(threshold: Float): Float {
+		// Wider band if we have low data; narrower as user teaches more.
+		val (h, s) = getCalibrationCounts()
+		val total = (h + s).coerceAtLeast(1)
+		val base = 0.20f
+		val minBand = 0.08f
+		val factor = (50f / total.toFloat()).coerceIn(0f, 1f)
+		return (base * factor + minBand).coerceIn(0.08f, 0.20f)
+	}
+
 	companion object {
 		private const val KEY_INTERVAL_MIN = "interval_min"
 		private const val KEY_FLAGGED = "flagged_comments" // legacy text-only
@@ -460,5 +477,7 @@ class SecureStore(context: Context) {
 		private const val KEY_COMMENT_ID_MAP = "comment_id_map"
 		private const val KEY_IG_USER_ID = "ig_user_id"
 		private const val KEY_METRIC_TOTAL_PROCESSED = "metric_total_processed"
+		private const val KEY_CAL_HATE = "calibration_hate"
+		private const val KEY_CAL_SAFE = "calibration_safe"
 	}
 }

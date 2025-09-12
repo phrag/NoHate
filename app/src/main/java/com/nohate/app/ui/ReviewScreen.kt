@@ -73,7 +73,7 @@ fun ReviewScreen() {
 	}
 
 	Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-		Text("Review comments", style = MaterialTheme.typography.titleLarge)
+		Text("Review", style = MaterialTheme.typography.titleLarge)
 		Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
 			FilterChip(selected = !showAll.value, onClick = { showAll.value = false }, label = { Text("Flagged only") })
 			FilterChip(selected = showAll.value, onClick = { showAll.value = true }, label = { Text("All last scan") })
@@ -99,7 +99,7 @@ fun ReviewScreen() {
 			}
 		} else {
 			Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-				Button(onClick = {
+				androidx.compose.material3.FilledTonalButton(onClick = {
 					if (showAll.value) {
 						store.setLastComments(emptyList())
 						lastComments.value = emptyList()
@@ -148,11 +148,11 @@ fun ReviewScreen() {
 									items.value = store.getFlaggedItems()
 								}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
 							} else {
-								IconButton(onClick = {
+								androidx.compose.material3.FilledTonalButton(onClick = {
 									val text = item.text
 									store.appendFlaggedItems(listOf(com.nohate.app.data.FlaggedItem(text = text, sourceUrl = item.sourceUrl)))
 									store.enqueueTraining(listOf(text))
-								}) { Icon(Icons.Filled.Flag, contentDescription = "Flag as hate") }
+								}) { Text("Flag as hate") }
 								TextButton(onClick = { store.addUserSafePhrase(item.text) }) { Text("Mark safe") }
 							}
 							// Report: open source URL or let user share to Instagram

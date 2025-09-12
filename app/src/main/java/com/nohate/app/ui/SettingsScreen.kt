@@ -33,6 +33,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.nohate.app.work.ScanWorker
+import androidx.compose.foundation.layout.Row
 
 @Composable
 fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null, onOpenOnboarding: (() -> Unit)? = null) {
@@ -48,39 +49,66 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 	val showLlmPrompt = remember { mutableStateOf(false) }
 	val downloading = remember { mutableStateOf(false) }
 	val downloadMsg = remember { mutableStateOf("") }
+	// Live scan/progress chips
+	val scanTotal = remember { mutableStateOf(store.getScanProgressTotal()) }
+	val scanDone = remember { mutableStateOf(store.getScanProgressDone()) }
+	val scanMsg = remember { mutableStateOf(store.getScanProgressMsg()) }
+	val lastTotal = remember { mutableStateOf(store.getLastScanTotal()) }
+	val lastFlagged = remember { mutableStateOf(store.getLastScanFlagged()) }
+
+	androidx.compose.runtime.LaunchedEffect(true) {
+		while (true) {
+			scanTotal.value = store.getScanProgressTotal()
+			scanDone.value = store.getScanProgressDone()
+			scanMsg.value = store.getScanProgressMsg()
+			lastTotal.value = store.getLastScanTotal()
+			lastFlagged.value = store.getLastScanFlagged()
+			kotlinx.coroutines.delay(1000)
+		}
+	}
 
 	Column(
 		modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
 		Text("Settings", style = MaterialTheme.typography.titleLarge)
+		// Status chips
+		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (scanTotal.value>0) "Scan ${scanDone.value}/${scanTotal.value}: ${scanMsg.value}" else "Scan idle") })
+			androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Last ${lastFlagged.value}/${lastTotal.value} flagged") })
+			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (useLlm.value) if (modelPresent.value) "LLM ready" else "LLM enabled, model missing" else "LLM off") })
+			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (useQuant.value) "Quant on" else "Quant off") })
+		}
+		androidx.compose.material3.FilledTonalButton(onClick = { onOpenOnboarding?.invoke() }) { Text("Run setup wizard") }
 
-		Button(onClick = { onOpenOnboarding?.invoke() }) { Text("Run setup wizard") }
-
+		androidx.compose.material3.ElevatedCard { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 		Text("Scan every ${minutes.value} minutes")
 		Slider(value = minutes.value.toFloat(), onValueChange = {
 			minutes.value = it.toInt().coerceIn(15, 120)
 		}, valueRange = 15f..120f)
-		Button(onClick = { store.setIntervalMinutes(minutes.value) }) { Text("Save interval") }
+		androidx.compose.material3.FilledTonalButton(onClick = { store.setIntervalMinutes(minutes.value) }) { Text("Save interval") }
+		} }
 
+		androidx.compose.material3.ElevatedCard { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 		Text("Flagging threshold: ${String.format("%.2f", threshold.value)}")
 		Slider(value = threshold.value, onValueChange = {
 			threshold.value = it.coerceIn(0.5f, 0.95f)
 		}, valueRange = 0.5f..0.95f)
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			store.setFlagThreshold(threshold.value)
 			store.appendLog("settings:threshold ${String.format("%.2f", threshold.value)}")
 			onMessage?.invoke("Threshold set to ${String.format("%.2f", threshold.value)}")
 		}) { Text("Save threshold") }
+		} }
 
 		Text("Connectors")
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			graphEnabled.value = !graphEnabled.value
 			store.setFeatureEnabled("ig_graph", graphEnabled.value)
 			store.appendLog("settings:ig_graph ${graphEnabled.value}")
 		}) { Text(if (graphEnabled.value) "Disable Instagram Business/Creator" else "Enable Instagram Business/Creator") }
 
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			sessionEnabled.value = !sessionEnabled.value
 			store.setFeatureEnabled("ig_session", sessionEnabled.value)
 			store.appendLog("settings:ig_session ${sessionEnabled.value}")
@@ -89,7 +117,7 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			}
 		}) { Text(if (sessionEnabled.value) "Disable Instagram Personal" else "Enable Instagram Personal (session)") }
 
-		Button(onClick = { store.clearProvider("instagram"); store.appendLog("settings:wipe instagram") }) { Text("Wipe Instagram credentials") }
+		androidx.compose.material3.FilledTonalButton(onClick = { store.clearProvider("instagram"); store.appendLog("settings:wipe instagram") }) { Text("Wipe Instagram credentials") }
 
 		Text("On-device model (quantized)")
 		Switch(checked = useQuant.value, onCheckedChange = {
@@ -128,8 +156,8 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 
 		Text(if (modelPresent.value) "LLM model present" else "LLM model missing (~210 MB)")
 		if (!modelPresent.value) {
-			Button(onClick = {
-				if (downloading.value) return@Button
+			androidx.compose.material3.FilledTonalButton(onClick = {
+				if (downloading.value) return@FilledTonalButton
 				downloading.value = true
 				downloadMsg.value = "Resolving model and downloading (~210 MB, Wi‑Fi recommended)..."
 				CoroutineScope(Dispatchers.IO).launch {
@@ -183,6 +211,6 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 			it.filter { ch -> ch.isDigit() }.toIntOrNull()?.let { v -> store.setMaxCommentsPerUrl(v) }
 		}, singleLine = true)
 
-		Button(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
+		androidx.compose.material3.FilledTonalButton(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
 	}
 }

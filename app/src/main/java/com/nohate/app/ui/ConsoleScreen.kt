@@ -37,14 +37,16 @@ fun ConsoleScreen() {
 		verticalArrangement = Arrangement.spacedBy(12.dp)
 	) {
 		Text("Console", style = MaterialTheme.typography.titleLarge)
-		if (logs.value.isEmpty()) {
-			Text("No logs yet.")
-		} else {
-			logs.value.forEach { line ->
-				Text(line)
+		androidx.compose.material3.ElevatedCard {
+			Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+				if (logs.value.isEmpty()) {
+					Text("No logs yet.")
+				} else {
+					logs.value.forEach { line -> Text(line) }
+				}
 			}
 		}
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			store.clearLogs()
 			logs.value = emptyList()
 		}) { Text("Clear logs") }

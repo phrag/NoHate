@@ -80,7 +80,7 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 			label = { Text("Type or paste a comment") },
 			minLines = 4
 		)
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			try {
 				val hate = store.getUserHatePhrases()
 				val safe = store.getUserSafePhrases()
@@ -91,12 +91,12 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 				error.value = t.message
 			}
 		}, enabled = input.value.isNotBlank()) { Text("Check this comment") }
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			store.addUserHatePhrase(input.value)
 			val s = NativeClassifier.classifyWithUser(input.value, store.getUserHatePhrases(), store.getUserSafePhrases())
 			score.value = s
 		}, enabled = input.value.isNotBlank()) { Text("Teach as harmful") }
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			store.addUserSafePhrase(input.value)
 			val s = NativeClassifier.classifyWithUser(input.value, store.getUserHatePhrases(), store.getUserSafePhrases())
 			score.value = s
@@ -115,7 +115,7 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 
 		Text("Train with your own list (one per line)")
 		OutlinedTextField(value = manualComments.value, onValueChange = { manualComments.value = it }, minLines = 3, modifier = Modifier.fillMaxWidth())
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			val payload = manualComments.value.trim()
 			if (payload.isNotEmpty()) {
 				status.value = "Scan enqueued..."
@@ -128,7 +128,7 @@ fun ManualTestScreen(onOpenReview: (() -> Unit)? = null) {
 
 		Text("Import from a public Instagram post")
 		OutlinedTextField(value = postUrl.value, onValueChange = { postUrl.value = it }, minLines = 1, modifier = Modifier.fillMaxWidth())
-		Button(onClick = {
+		androidx.compose.material3.FilledTonalButton(onClick = {
 			val url = postUrl.value.trim()
 			if (url.isNotEmpty()) {
 				scope.launch {

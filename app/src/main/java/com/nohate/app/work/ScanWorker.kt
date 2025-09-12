@@ -107,6 +107,7 @@ class ScanWorker(
 		val userHate = store.getUserHatePhrases()
 		val userSafe = store.getUserSafePhrases()
 		val threshold = store.getFlagThreshold()
+		val llmBand = store.getLlmBandWidth(threshold)
 		val useQuant = store.isUseQuantizedModel()
 		val tfl = if (useQuant) TfliteClassifier(applicationContext) else null
 		val useLlm = store.isUseLlm()
@@ -118,7 +119,7 @@ class ScanWorker(
 				val rulesScore = NativeClassifier.classifyWithUser(comment, userHate, userSafe)
 				val modelScore = tfl?.classify(comment) ?: 0f
 				var finalScore = maxOf(rulesScore, modelScore)
-				if (finalScore in (threshold - 0.2f)..threshold && llm != null) {
+				if (finalScore in (threshold - llmBand)..threshold && llm != null) {
 					store.incLlmInvocations()
 					val res = llm.classify(comment, LlamaEngine.PROMPT)
 					Log.d(TAG, "llm used text='${comment.take(40)}' rules=${"%.2f".format(rulesScore)} tfl=${"%.2f".format(modelScore)} llm=${"%.2f".format(res.score)}")
@@ -130,8 +131,8 @@ class ScanWorker(
 				val safeOverride = userSafe.any { it.isNotBlank() && lc.contains(it) }
 				var isFlagged = finalScore >= threshold
 				var overrideNote = ""
-				if (hateOverride) { isFlagged = true; overrideNote = " override=hate" }
-				else if (safeOverride) { isFlagged = false; overrideNote = " override=safe" }
+				if (hateOverride) { isFlagged = true; overrideNote = " override=hate"; store.addCalibrationSample("hate") }
+				else if (safeOverride) { isFlagged = false; overrideNote = " override=safe"; store.addCalibrationSample("safe") }
 				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged${overrideNote} text='${comment.take(40)}'")
 				processed += 1
 				if (processed % 5 == 0 || processed == comments.size) {

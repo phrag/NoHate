@@ -55,15 +55,12 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.LocalContext
 import android.net.Uri
+import com.nohate.app.ui.theme.NoHateTheme
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		setContent {
-			MaterialTheme {
-				App()
-			}
-		}
+		setContent { NoHateTheme { App() } }
 	}
 }
 
@@ -92,13 +89,14 @@ private fun App() {
 	Scaffold(
 		topBar = {
 			TopAppBar(
-				title = { Text("NoHate", modifier = Modifier.clickable { nav.navigate("home") { popUpTo("home") { inclusive = false } } }) }
+				title = { Text("NoHate", modifier = Modifier.clickable { nav.navigate("home") { popUpTo("home") { inclusive = false } } }) },
+				colors = TopAppBarDefaults.topAppBarColors()
 			)
 		},
 		snackbarHost = { SnackbarHost(snackbarHostState) },
 		bottomBar = {
 			if (route != "onboarding") {
-				NavigationBar {
+				NavigationBar(tonalElevation = 0.dp) {
 					NavigationBarItem(selected = route == "home", onClick = { nav.navigate("home") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.Home, contentDescription = "Home") }, label = { Text("Home") })
 					NavigationBarItem(selected = route == "review", onClick = { nav.navigate("review") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.List, contentDescription = "Review") }, label = { Text("Review") })
 					NavigationBarItem(selected = route == "manualTest", onClick = { nav.navigate("manualTest") { launchSingleTop = true; restoreState = true } }, icon = { Icon(Icons.Filled.School, contentDescription = "Train") }, label = { Text("Train") })
@@ -199,24 +197,23 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
     }
 
 	LazyColumn(
+		contentPadding = PaddingValues(bottom = 80.dp),
 		modifier = Modifier.fillMaxSize().padding(16.dp),
 		verticalArrangement = Arrangement.spacedBy(16.dp)
 	) {
 		// Minimal top actions
 		item {
 			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+					Text("Quick Actions", style = MaterialTheme.typography.titleLarge)
+					FilledTonalButton(onClick = {
+                            val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
+                            WorkManager.getInstance(context).enqueue(nowReq)
+                            onMessage("Scan started")
+                    }) { Text("Run scan now") }
 					Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-						Button(onClick = {
-							val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
-							WorkManager.getInstance(context).enqueue(nowReq)
-							onMessage("Scan started")
-						}) { Text("Run now") }
-						Button(onClick = onOpenReview) { Text("Review") }
-						Button(onClick = onOpenManualTrain) { Text("Teach AI") }
-					}
-					if (scanProgress.value.isNotEmpty()) {
-						Text(scanProgress.value)
+						TextButton(onClick = onOpenReview) { Text("Review") }
+						TextButton(onClick = onOpenManualTrain) { Text("Teach AI") }
 					}
 				}
 			}
@@ -226,98 +223,26 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Flagged comments", style = MaterialTheme.typography.titleMedium)
-					if (flagged.isEmpty()) {
-						Text("No flagged comments yet.")
-						Text("Tips:")
-						Text("• Tap Run now to scan recent comments")
-						Text("• Add a monitored post URL below to include in scans")
-						Text("• Use Local AI Training to import a public post or paste text")
-						Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-							Button(onClick = {
-								val nowReq = OneTimeWorkRequestBuilder<ScanWorker>().build()
-								WorkManager.getInstance(context).enqueue(nowReq)
-								onMessage("Scan started")
-							}) { Text("Run scan now") }
-							Button(onClick = onOpenManualTrain) { Text("Local AI Training") }
-						}
-					} else {
-						flagged.forEachIndexed { idx, item ->
-							Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-								Text("• ${item.text}")
-								Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-									IconButton(onClick = {
-										clipboard.setText(AnnotatedString(item.text))
-										onMessage("Copied to clipboard")
-									}) { Icon(Icons.Filled.ContentCopy, contentDescription = "Copy") }
-									IconButton(onClick = {
-										val share = Intent(Intent.ACTION_SEND).apply {
-											type = "text/plain"
-											putExtra(Intent.EXTRA_TEXT, item.text)
-										}
-										context.startActivity(Intent.createChooser(share, "Share comment"))
-									}) { Icon(Icons.Filled.Share, contentDescription = "Share") }
-									item.sourceUrl?.let { url ->
-										IconButton(onClick = {
-											val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-											context.startActivity(intent)
-										}) { Icon(Icons.Filled.Info, contentDescription = "Open") }
-									}
-									IconButton(onClick = {
-										store.correctFalsePositive(idx)
-										flagged = store.getFlaggedItems()
-										onMessage("Marked as not hate")
-									}) { Icon(Icons.Filled.CheckCircle, contentDescription = "Not hate") }
-									IconButton(onClick = {
-										store.hideFlaggedItemAt(idx)
-										flagged = store.getFlaggedItems()
-										onMessage("Hidden from list")
-									}) { Icon(Icons.Filled.VisibilityOff, contentDescription = "Hide") }
-									IconButton(onClick = {
-										val report = Intent(Intent.ACTION_SEND).apply {
-											type = "text/plain"
-											putExtra(Intent.EXTRA_SUBJECT, "Report hate comment")
-											putExtra(Intent.EXTRA_TEXT, "Reported comment:\n\n${item.text}\n\nSource: ${item.sourceUrl ?: "unknown"}")
-										}
-										context.startActivity(Intent.createChooser(report, "Report via"))
-									}) { Icon(Icons.Filled.Flag, contentDescription = "Report") }
-									IconButton(onClick = {
-										store.removeFlaggedItemAt(idx)
-										flagged = store.getFlaggedItems()
-										onMessage("Removed")
-									}) { Icon(Icons.Filled.Delete, contentDescription = "Delete") }
-								}
-							}
-						}
-					}
+					Text("Recent flagged", style = MaterialTheme.typography.titleLarge)
+					val preview = flagged.take(3)
+					if (preview.isEmpty()) Text("None yet. Run a scan.") else preview.forEach { item -> Text("• ${item.text}") }
+					TextButton(onClick = onOpenReview) { Text("Open Review") }
 				}
 			}
 		}
 		// Scanning controls
 		item {
 			ElevatedCard {
-				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Scanning", style = MaterialTheme.typography.titleMedium)
-					Text(text = "Every ${minutes} min")
-                    if (scanTotal.value > 0) {
-                        LinearProgressIndicator(progress = (scanDone.value.coerceAtMost(scanTotal.value)).toFloat() / scanTotal.value.toFloat())
-                        Text("${scanMsg.value} (${scanDone.value}/${scanTotal.value})")
-                    }
-					Slider(
-						value = minutes.toFloat(),
-						onValueChange = { minutes = it.toInt().coerceIn(15, 120) },
-						valueRange = 15f..120f
-					)
-					Button(onClick = {
-						store.setIntervalMinutes(minutes)
-						val request = PeriodicWorkRequestBuilder<ScanWorker>(minutes.toLong(), TimeUnit.MINUTES).build()
-						WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-							"comment-scan",
-							ExistingPeriodicWorkPolicy.UPDATE,
-							request
-						)
-						onMessage("Scheduled scanning every ${minutes} min")
-					}) { Text("Start scanning") }
+				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+					Text("Live scan", style = MaterialTheme.typography.titleLarge)
+					if (scanTotal.value > 0) {
+						LinearProgressIndicator(progress = (scanDone.value.coerceAtMost(scanTotal.value)).toFloat() / scanTotal.value.toFloat())
+						Text("${scanMsg.value} (${scanDone.value}/${scanTotal.value})")
+					} else Text("Idle")
+					Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Every ${minutes} min") })
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("LLM ${if (llmEnabled.value) "on" else "off"}") })
+					}
 				}
 			}
 		}
@@ -326,11 +251,13 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text("Status", style = MaterialTheme.typography.titleMedium)
-					Text("Connectors — Business/Creator: ${graphEnabled.value}, Personal: ${sessionEnabled.value}")
-					Text("LLM enabled: ${llmEnabled.value}")
+					Text("Recent metrics", style = MaterialTheme.typography.titleLarge)
 					val whenStr = if (lastScanAt == 0L) "never" else DateFormat.getDateTimeInstance().format(Date(lastScanAt))
-					Text("Last scan: ${whenStr} (total ${lastScanTotal}, flagged ${lastScanFlagged})")
+					Text("Last scan: ${whenStr}")
+					Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Total ${lastScanTotal}") })
+						androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Flagged ${lastScanFlagged}") })
+					}
 				}
 			}
 		}
@@ -340,7 +267,7 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 		item {
 			ElevatedCard {
 				Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-					Text("Monitored posts", style = MaterialTheme.typography.titleMedium)
+					Text("Monitored posts", style = MaterialTheme.typography.titleLarge)
 					if (monitoredUrls.value.isEmpty()) {
 						Text("No monitored posts. Add a public or owned post URL to monitor during each scan.")
 					} else {
@@ -354,24 +281,24 @@ private fun MainScreen(onMessage: (String) -> Unit, onOpenManualTrain: () -> Uni
 								}) { Text("Remove") }
 							}
 						}
-						Button(onClick = {
-							store.clearMonitoredUrls()
-							monitoredUrls.value = store.getMonitoredUrls()
-						}) { Text("Clear all") }
-					}
-					var newUrl by remember { mutableStateOf("") }
-					OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
-					Button(onClick = {
-						val u = newUrl.trim()
-						if (u.isNotEmpty()) {
-							store.addMonitoredUrl(u)
-							monitoredUrls.value = store.getMonitoredUrls()
-							newUrl = ""
-							onMessage("Added to monitor list")
-						}
-					}) { Text("Add post to monitor") }
-				}
-			}
-		}
-	}
+						FilledTonalButton(onClick = {
+                            store.clearMonitoredUrls()
+                            monitoredUrls.value = store.getMonitoredUrls()
+                        }) { Text("Clear all") }
+                    }
+                    var newUrl by remember { mutableStateOf("") }
+                    OutlinedTextField(value = newUrl, onValueChange = { newUrl = it }, label = { Text("Add URL") })
+                    FilledTonalButton(onClick = {
+                        val u = newUrl.trim()
+                        if (u.isNotEmpty()) {
+                            store.addMonitoredUrl(u)
+                            monitoredUrls.value = store.getMonitoredUrls()
+                            newUrl = ""
+                            onMessage("Added to monitor list")
+                        }
+                    }) { Text("Add post to monitor") }
+                }
+            }
+        }
+    }
 }

@@ -68,8 +68,16 @@ class LlamaEngine(private val context: Context) : LlmEngine {
 
 	companion object {
 		const val PROMPT = """
-		You are a strict hate-speech classifier. Output compact JSON only:
-		{"label":"hate|not_hate","score":0.0-1.0}
+		You are a precise hate-speech classifier. Return one compact JSON line only, no prose.
+		Schema: {"label":"hate|not_hate","score":0.0-1.0}
+		Guidelines:
+		- Label "hate" for demeaning slurs, threats, calls for violence, dehumanization, or attacks on protected groups/traits.
+		- Label "not_hate" for neutral or contextless content, sarcasm without direct target, or praise.
+		- Be conservative: if uncertain, keep score near 0.5, but do not add text.
+		- Consider short comments and slang; avoid over-weighting expletives without a target.
+		Examples:
+		- "you are scum" -> {"label":"hate","score":0.86}
+		- "that song slaps" -> {"label":"not_hate","score":0.03}
 		Text: {{text}}
 		"""
 	}
