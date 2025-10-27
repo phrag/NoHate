@@ -134,4 +134,4 @@ gradle wrapper
 - `scripts/build_rust_android.sh` builds the Rust core for `arm64-v8a`, `armeabi-v7a`, `x86_64` and places `.so` files into `app/src/main/jniLibs/…`
 
 ## Licenses
-- You are responsible for complying with each platform's terms of service and API usage policies.
+GPLv3
