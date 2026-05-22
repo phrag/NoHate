@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.util.Log
+import com.nohate.app.data.SecureStore
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.LongBuffer
@@ -35,6 +36,7 @@ class OnnxClassifier(
     private val tokenizer: BertTokenizer?
     private val idsInputName: String
     private val maskInputName: String
+    private val debugStore: SecureStore? = if (DEBUG_LOGITS) runCatching { SecureStore(context) }.getOrNull() else null
 
     override val info: ClassifierInfo = ClassifierInfo(
         id = entry.id,
@@ -130,7 +132,9 @@ class OnnxClassifier(
                                 val firstIds = enc.inputIds.take(12).joinToString(",")
                                 val maskedLen = enc.attentionMask.count { it == 1L }
                                 val rawStr = describeLogits(raw)
-                                Log.d(TAG, "${entry.id} text='${text.take(40)}' ids=[$firstIds...] len=$maskedLen logits=$rawStr")
+                                val msg = "onnx ${entry.id} text='${text.take(40)}' ids=[$firstIds...] len=$maskedLen logits=$rawStr"
+                                Log.d(TAG, msg)
+                                debugStore?.appendLog(msg)
                             }
                             interpret(raw)
                         }
