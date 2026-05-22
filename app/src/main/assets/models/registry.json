@@ -17,7 +17,7 @@
     "version": "1.0.0",
     "sourceRepo": "martin-ha/toxic-comment-model",
     "tokenizerEmbedded": false,
-    "outputKind": "sigmoid_single"
+    "outputKind": "softmax_pair"
   },
     {
       "id": "dehatebert-en",

@@ -160,25 +160,43 @@ private fun App() {
     }
 
     if (trainingItem.value != null) {
+        val skip = {
+            store.dequeueTraining()
+            trainingItem.value = store.peekTraining()
+        }
         AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Help improve NoHate") },
-            text = { Text(trainingItem.value ?: "") },
+            onDismissRequest = { skip() },
+            title = { Text("Was this hate speech?") },
+            text = {
+                androidx.compose.foundation.layout.Column(
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("“${trainingItem.value ?: ""}”")
+                    Text(
+                        "Your answer trains the on-device classifier. Tap outside or Skip to decide later.",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     val text = store.dequeueTraining() ?: return@TextButton
                     store.addUserHatePhrase(text)
                     store.appendLog("train:hate '${text.take(30)}'")
                     trainingItem.value = store.peekTraining()
-                }) { Text("Mark as hate") }
+                }) { Text("Hate") }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    val text = store.dequeueTraining() ?: return@TextButton
-                    store.addUserSafePhrase(text)
-                    store.appendLog("train:safe '${text.take(30)}'")
-                    trainingItem.value = store.peekTraining()
-                }) { Text("Not hate") }
+                androidx.compose.foundation.layout.Row {
+                    TextButton(onClick = { skip() }) { Text("Skip") }
+                    TextButton(onClick = {
+                        val text = store.dequeueTraining() ?: return@TextButton
+                        store.addUserSafePhrase(text)
+                        store.appendLog("train:safe '${text.take(30)}'")
+                        trainingItem.value = store.peekTraining()
+                    }) { Text("Not hate") }
+                }
             },
         )
     }
