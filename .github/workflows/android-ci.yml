@@ -35,6 +35,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Rust JNI core
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+        run: ./scripts/build_rust_android.sh
+
       - name: Cache Gradle
         uses: gradle/gradle-build-action@v3
         with:

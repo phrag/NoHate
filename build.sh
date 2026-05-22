@@ -3,6 +3,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Build the Rust JNI core first so libnohcore.so is bundled into the APK.
+# Skippable via SKIP_RUST_BUILD=1 if you're iterating purely on Kotlin/Compose.
+if [[ "${SKIP_RUST_BUILD:-0}" != "1" ]]; then
+  ./scripts/build_rust_android.sh
+fi
+
 # Usage: ./build.sh [debug|release]
 MODE="${1:-debug}"
 

@@ -1,6 +1,7 @@
 package com.nohate.app.classify
 
 import android.content.Context
+import com.nohate.app.NativeClassifier
 import com.nohate.app.data.SecureStore
 
 /**
@@ -24,7 +25,7 @@ class ClassifierRegistry(private val context: Context) {
 	 */
 	fun available(): List<String> = buildList {
 		addAll(readyOnnxIds())
-		add(RulesClassifier.ID)
+		if (NativeClassifier.isLibraryLoaded) add(RulesClassifier.ID)
 		if (store.isUseQuantizedModel()) add(LegacyTfliteClassifier.ID)
 		if (store.isUseLlm()) add(LlmClassifier.ID)
 	}

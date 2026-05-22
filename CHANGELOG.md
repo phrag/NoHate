@@ -19,6 +19,9 @@ All notable changes to NoHate. Format follows [Keep a Changelog](https://keepach
 - `ScanWorker` drives classification through `ClassifierManager`; max-of-primaries + LLM borderline semantics and user lexicon overrides preserved.
 - Compose BOM bumped to `2024.10.01`; `material3` to `1.3.1`.
 - CI: `gradle/wrapper-validation-action@v2` → `gradle/actions/wrapper-validation@v4` (renamed upstream; old path has flaky checksum lookups).
+- CI now installs Rust + `cargo-ndk` and runs `./scripts/build_rust_android.sh` before Gradle so APKs ship with `libnohcore.so`.
+- `./build.sh` invokes the Rust build automatically (skip with `SKIP_RUST_BUILD=1`).
+- `NativeClassifier` no longer throws when `libnohcore.so` is missing — exposes `isLibraryLoaded`; `ClassifierRegistry` skips the rules backend cleanly when the .so isn't bundled.
 
 ### Deferred
 - `onnxruntime-extensions-android` dep deferred to Phase 2 tail (re-add at a confirmed published version when bundling the first tokenizer-embedded model). `OnnxClassifier` already loads it reflectively so its absence is a clean no-op.
