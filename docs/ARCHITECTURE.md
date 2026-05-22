@@ -16,12 +16,10 @@ app/                                  Android app (Kotlin + Compose)
 │   ├── ClassifierManager.kt          Holds active primary + borderline
 │   ├── RulesClassifier.kt            Wraps NativeClassifier (Rust)
 │   ├── OnnxClassifier.kt             (Phase 2) ONNX Runtime Mobile
-│   ├── LegacyTfliteClassifier.kt     Wraps TfliteClassifier
 │   ├── LlmClassifier.kt              Wraps LlamaEngine
 │   └── ModelDownloader.kt            (Phase 2) registry-driven downloader
 ├── bench/                            (Phase 3) benchmark harness
 ├── llm/                              llama.cpp JNI bridge + downloader
-├── ml/                               Legacy TFLite (kept during transition)
 ├── platform/                         Instagram providers, PostImporter
 ├── ui/                               Compose screens + theme
 └── work/ScanWorker.kt                WorkManager scan pipeline

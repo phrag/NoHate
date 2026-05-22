@@ -46,7 +46,6 @@ import com.nohate.app.auth.SessionLoginActivity
 import com.nohate.app.data.SecureStore
 import com.nohate.app.llm.LlamaEngine
 import com.nohate.app.llm.LlmDownloader
-import com.nohate.app.ml.TfliteClassifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,7 +64,6 @@ fun SettingsScreen(
     val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
     val graphEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_graph")) }
     val sessionEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_session")) }
-    val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
     val useLlm = remember { mutableStateOf(store.isUseLlm()) }
     val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
     val modelPresent = remember { mutableStateOf(LlamaEngine(context).modelPresent()) }
@@ -142,25 +140,6 @@ fun SettingsScreen(
         SectionHeader(icon = { Icon(Icons.Filled.Memory, contentDescription = null) }, title = "Models")
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                ListItem(
-                    headlineContent = { Text("Quantized on-device model") },
-                    supportingContent = { Text("TFLite; lower accuracy, faster") },
-                    trailingContent = {
-                        Switch(
-                            checked = useQuant.value,
-                            onCheckedChange = {
-                                useQuant.value = it
-                                store.setUseQuantizedModel(it)
-                                store.appendLog("settings:quant ${it}")
-                                if (it) {
-                                    try { TfliteClassifier(context).classify("warmup") } catch (_: Throwable) {}
-                                    onMessage?.invoke("Quantized model enabled")
-                                } else onMessage?.invoke("Quantized model disabled")
-                            },
-                        )
-                    },
-                )
-                HorizontalDivider()
                 ListItem(
                     headlineContent = { Text("TinyLlama borderline model") },
                     supportingContent = {

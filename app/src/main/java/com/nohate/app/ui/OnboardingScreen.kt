@@ -20,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.nohate.app.auth.SessionLoginActivity
 import com.nohate.app.data.SecureStore
 import com.nohate.app.llm.LlamaEngine
-import com.nohate.app.ml.TfliteClassifier
 import com.nohate.app.llm.LlmDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +33,6 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 	val sessionEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_session")) }
 	val graphEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_graph")) }
 	val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
-	val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
 	val useLlm = remember { mutableStateOf(store.isUseLlm()) }
 	val downloadMsg = remember { mutableStateOf("") }
 	val downloading = remember { mutableStateOf(false) }
@@ -72,16 +70,12 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 			}
 			2 -> {
 				Text("On-device models")
-				Text("Enable fast TFLite model and optional tiny LLM for borderline cases.")
-				Text("Why LLM? It double-checks borderline comments to reduce false positives.")
+				Text("A DistilBERT toxic-comment classifier is bundled and runs on every comment.")
+				Text("You can optionally enable TinyLlama as a borderline second-opinion model.")
+				Text("Why? It double-checks comments whose primary score is in the uncertain band.")
 				Text("LLM download size: ~210 MB. Stored on-device. No data leaves your phone.")
 				Text("Tip: Download on Wi‑Fi. Used only during scans.")
 				Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-					Button(onClick = {
-						useQuant.value = !useQuant.value
-						store.setUseQuantizedModel(useQuant.value)
-						if (useQuant.value) try { TfliteClassifier(context).classify("warmup") } catch (_: Throwable) {}
-					}) { Text(if (useQuant.value) "✓ Fast model enabled" else "Enable fast model") }
 					Button(onClick = {
 						useLlm.value = !useLlm.value
 						store.setUseLlm(useLlm.value)

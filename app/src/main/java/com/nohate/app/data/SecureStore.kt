@@ -380,12 +380,6 @@ class SecureStore(context: Context) {
 		incTrainedSafe()
 	}
 
-	fun setUseQuantizedModel(enabled: Boolean) {
-		prefs.edit().putBoolean(KEY_USE_QUANT, enabled).apply()
-	}
-
-	fun isUseQuantizedModel(): Boolean = prefs.getBoolean(KEY_USE_QUANT, false)
-
 	fun setUseLlm(enabled: Boolean) {
 		prefs.edit().putBoolean(KEY_USE_LLM, enabled).apply()
 	}
@@ -472,7 +466,6 @@ class SecureStore(context: Context) {
 		private const val KEY_ONBOARDED = "onboarding_complete"
 		private const val KEY_USER_HATE = "user_hate_phrases"
 		private const val KEY_USER_SAFE = "user_safe_phrases"
-		private const val KEY_USE_QUANT = "use_quantized_model"
 		private const val KEY_USE_LLM = "use_llm"
 		private const val KEY_FLAG_THRESHOLD = "flag_threshold"
 		private const val KEY_LOGS = "console_logs"

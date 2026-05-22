@@ -6,7 +6,7 @@ All notable changes to NoHate. Format follows [Keep a Changelog](https://keepach
 
 ### Added
 - Tracking docs: `ROADMAP.md`, `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `docs/MODELS.md`, `docs/BENCHMARKS.md`, `docs/DECISIONS.md`, `docs/MODERATION.md`.
-- `Classifier` interface + `ClassifierRegistry` + `ClassifierManager` under `app/src/main/java/com/nohate/app/classify/`. Backends (Rules, TFLite legacy, TinyLlama LLM) are wrapped behind the new surface.
+- `Classifier` interface + `ClassifierRegistry` + `ClassifierManager` under `app/src/main/java/com/nohate/app/classify/`. Backends (Rules, ONNX transformer, TinyLlama LLM) are wrapped behind the new surface.
 - `OnnxClassifier` backed by ONNX Runtime Mobile + ORT Extensions; loads tokenizer-embedded models from `assets/models/` or `filesDir/models/`.
 - `ModelRegistry` and `ModelDownloader`: a JSON-driven catalogue (`assets/models/registry.json`) with resume + checksum HTTP downloads.
 - Conversion recipes: `scripts/export_onnx.py`, `scripts/quantize_onnx.py`.
@@ -23,15 +23,14 @@ All notable changes to NoHate. Format follows [Keep a Changelog](https://keepach
 - `./build.sh` invokes the Rust build automatically (skip with `SKIP_RUST_BUILD=1`).
 - `NativeClassifier` no longer throws when `libnohcore.so` is missing — exposes `isLibraryLoaded`; `ClassifierRegistry` skips the rules backend cleanly when the .so isn't bundled.
 
+### Removed
+- Legacy TFLite stub classifier (`com.nohate.app.ml.TfliteClassifier` + `LegacyTfliteClassifier` wrapper) and the `org.tensorflow:tensorflow-lite` dependency. The stub returned `text.length / 512f` and contributed nothing to accuracy; the real on-device transformer is now the ONNX DistilBERT primary. Removed associated `isUseQuantizedModel` / `setUseQuantizedModel` from `SecureStore`, the "Quantized on-device model" toggle from Settings, and the "Enable fast model" button from Onboarding.
+
 ### Deferred
-- `onnxruntime-extensions-android` dep deferred to Phase 2 tail (re-add at a confirmed published version when bundling the first tokenizer-embedded model). `OnnxClassifier` already loads it reflectively so its absence is a clean no-op.
 - `material3-adaptive` dep dropped from Phase 2; the right coordinate sits under the `androidx.compose.material3.adaptive` group and will be added in Phase 4 when adaptive layouts actually land.
 
 ### Planned
-- Bundle `toxic-distilbert-int8.onnx` in `assets/models/` (Phase 2 tail).
-- On-device benchmark suite (Phase 3).
-- Material 3 Expressive UI refresh with dynamic color (Phase 4).
-- Moderation actions: hide / delete / block via Instagram Graph (Phase 4.5).
+- Phase 5 polish: unit tests, v0.2.0 cut.
 
 ## [0.1.0] — Initial release
 - Privacy-first design: no cloud, no telemetry; encrypted storage.

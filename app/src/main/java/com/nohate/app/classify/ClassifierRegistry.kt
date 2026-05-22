@@ -21,12 +21,11 @@ class ClassifierRegistry(private val context: Context) {
 
 	/**
 	 * Ids of every backend the app is currently willing to run, in priority order:
-	 *   ready ONNX primaries, rules core, optional TFLite stub, optional LLM.
+	 *   ready ONNX primaries, rules core, optional LLM borderline.
 	 */
 	fun available(): List<String> = buildList {
 		addAll(readyOnnxIds())
 		if (NativeClassifier.isLibraryLoaded) add(RulesClassifier.ID)
-		if (store.isUseQuantizedModel()) add(LegacyTfliteClassifier.ID)
 		if (store.isUseLlm()) add(LlmClassifier.ID)
 	}
 
@@ -47,7 +46,6 @@ class ClassifierRegistry(private val context: Context) {
 				userHate = { store.getUserHatePhrases() },
 				userSafe = { store.getUserSafePhrases() },
 			)
-			LegacyTfliteClassifier.ID -> LegacyTfliteClassifier(context)
 			LlmClassifier.ID -> LlmClassifier(context).takeIf { it.isReady() }
 			else -> null
 		}

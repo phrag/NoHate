@@ -9,7 +9,7 @@ The shipped registry lives at `app/src/main/assets/models/registry.json`. Each e
 | Field | Meaning |
 |---|---|
 | `id` | Stable identifier used by `SecureStore` and the UI. |
-| `kind` | `onnx` \| `tflite` \| `rules` \| `llm`. |
+| `kind` | `onnx` \| `rules` \| `llm`. |
 | `primary` | True if this model is selectable as the primary backend. |
 | `bundled` | True if shipped in the APK under `assets/models/`. |
 | `asset` / `url` | Asset path (bundled) or HTTPS URL (downloadable). |
@@ -27,8 +27,7 @@ The shipped registry lives at `app/src/main/assets/models/registry.json`. Each e
 | id | Backend | Kind | Default | Size (INT8) | Languages | License | Source |
 |---|---|---|---|---|---|---|---|
 | `rules-v1` | `RulesClassifier` | rules | yes (fallback) | tiny | en (extensible) | GPL-3.0 (own code) | Rust core |
-| `tflite-stub` | `LegacyTfliteClassifier` | tflite | no | n/a | en | varies | Legacy; kept during transition |
-| `toxic-distilbert-int8` | `OnnxClassifier` | onnx | **yes (default)** | ~35 MB | en | Apache-2.0 | [`martin-ha/toxic-comment-model`](https://huggingface.co/martin-ha/toxic-comment-model) |
+| `toxic-distilbert-int8` | `OnnxClassifier` | onnx | **yes (default)** | ~64 MB | en | Apache-2.0 | [`martin-ha/toxic-comment-model`](https://huggingface.co/martin-ha/toxic-comment-model) |
 | `dehatebert-en` | `OnnxClassifier` | onnx | downloadable | ~110 MB | en | Apache-2.0 | [`Hate-speech-CNERG/dehatebert-mono-english`](https://huggingface.co/Hate-speech-CNERG/dehatebert-mono-english) |
 | `twitter-roberta-hate` | `OnnxClassifier` | onnx | downloadable | ~110 MB | en | MIT | [`cardiffnlp/twitter-roberta-base-hate-latest`](https://huggingface.co/cardiffnlp/twitter-roberta-base-hate-latest) |
 | `tinyllama-1.1b-q4km` | `LlmClassifier` | llm | borderline-only | ~640 MB | en (best) | Apache-2.0 | TinyLlama via llama.cpp |

@@ -6,13 +6,10 @@ import com.nohate.app.data.SecureStore
 /**
  * Picks and applies the primary + borderline classifiers for a scan.
  *
- * Phase 1 keeps the existing behaviour: rules + (optional) TFLite stub as the
- * primary signals combined via max(), and the TinyLlama LLM as a borderline
- * second opinion when the score lands inside the calibration band around the
- * user's flagging threshold.
- *
- * Phase 2 will let the user select a specific primary id from a richer set
- * (ONNX transformer classifiers) via `SecureStore`.
+ * Primary signals (ready ONNX models + the Rust rules core) are combined via
+ * max(); when the resulting score falls inside the calibration band around the
+ * user's flagging threshold, the optional TinyLlama LLM is invoked as a
+ * second opinion.
  */
 class ClassifierManager(
 	context: Context,

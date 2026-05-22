@@ -84,8 +84,6 @@ dependencies {
 	implementation("androidx.compose.material:material-icons-extended")
 	implementation("androidx.navigation:navigation-compose:2.8.0")
 
-	implementation("org.tensorflow:tensorflow-lite:2.12.0")
-
 	// ONNX Runtime Mobile + Extensions (Phase 2 — primary NLP classifier).
 	// Extensions provides BertTokenizer / SentencePiece custom ops so models
 	// can carry their tokenizer in-graph; OnnxClassifier registers the op
