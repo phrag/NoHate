@@ -29,10 +29,13 @@ See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/MODELS.md`](doc
 - [ ] Populate first `docs/BENCHMARKS.md` results _(run on a device once the build is green)_
 
 ## Phase 4 — UI/UX refresh (Material 3 Expressive)
-- [ ] Dynamic color theme on API ≥ 31, fallback palette on lower
-- [ ] `Type.kt`, `Shape.kt`, `Motion.kt` tokens
-- [ ] Extract `HomeScreen.kt` from `MainActivity.kt`; refresh all screens
-- [ ] Empty/loading skeletons; motion polish
+- [x] Dynamic color theme on API ≥ 31, fallback palette on lower
+- [x] `Type.kt`, `Shape.kt` tokens
+- [x] Extract `HomeScreen.kt` from `MainActivity.kt`; refresh all screens
+- [x] `ReviewScreen` segmented filter chips, `CommentCard` composable
+- [x] `SettingsScreen` grouped sections (Calibration / Models / Connectors / Privacy / Danger zone)
+- [ ] `Motion.kt` tokens + transition polish
+- [ ] Empty/loading skeletons
 - [ ] Accessibility pass (TalkBack, contrast, large text)
 - [ ] Model Manager UI under Settings
 
@@ -51,6 +54,12 @@ Make it trivial to act on a flagged comment, scoped to what the user is authoriz
 - [ ] Benchmark instrumented test
 - [ ] Finalize tracking docs
 - [ ] Cut v0.2.0; update `CHANGELOG.md`
+
+## Phase 6 — Automated visual / UX tests
+- [ ] Add **Paparazzi** (Square) screenshot tests: render `HomeScreen`, `ReviewScreen`, `SettingsScreen`, `BenchScreen` to golden PNGs; diff on every CI run
+- [ ] Add **Robolectric + Compose `createComposeRule`** semantic tests: scan button triggers WorkManager enqueue, filter chips toggle state, threshold slider saves, nav routes resolve
+- [ ] `scripts/record_screenshots.sh` helper to regenerate goldens after intentional UI changes
+- [ ] Wire Paparazzi + Robolectric into existing `testDebugUnitTest` CI step (no emulator needed)
 
 ## Status legend
 - `[ ]` Not started

@@ -13,14 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -85,7 +88,7 @@ fun ReviewScreen() {
     }
 
     val displayItems: List<FlaggedItem> = if (showAll.value)
-        lastComments.value.map { FlaggedItem(text = it, sourceUrl = null) }
+        lastComments.value.map { FlaggedItem(text = it) }
     else
         items.value
 
@@ -99,18 +102,18 @@ fun ReviewScreen() {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = !showAll.value,
-                    onClick = { showAll.value = false },
+                    selected = !showAll.value && !showHidden.value,
+                    onClick = { showAll.value = false; showHidden.value = false },
                     label = { Text("Flagged (${items.value.size})") },
                 )
                 FilterChip(
                     selected = showAll.value,
-                    onClick = { showAll.value = true },
+                    onClick = { showAll.value = true; showHidden.value = false },
                     label = { Text("All last scan (${lastComments.value.size})") },
                 )
                 FilterChip(
                     selected = showHidden.value,
-                    onClick = { showHidden.value = !showHidden.value },
+                    onClick = { showHidden.value = true; showAll.value = false },
                     label = { Text("Hidden (${hidden.value.size})") },
                 )
             }
@@ -123,7 +126,8 @@ fun ReviewScreen() {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Nothing to review", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            if (showAll.value) "No comments from the last scan." else "No flagged comments. Run a scan or lower the threshold.",
+                            if (showAll.value) "No comments from the last scan."
+                            else "No flagged comments. Run a scan or lower the threshold in Settings.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -135,7 +139,6 @@ fun ReviewScreen() {
             }
         }
 
-        // Clear button row when items exist
         if (!showHidden.value && displayItems.isNotEmpty()) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -151,14 +154,15 @@ fun ReviewScreen() {
             }
         }
 
-        // Comment cards (flagged / all-scan view)
+        // Comment cards
         if (!showHidden.value) {
             itemsIndexed(displayItems) { idx, item ->
                 CommentCard(
                     item = item,
                     showAll = showAll.value,
                     graphReady = graph.isAuthorized(),
-                    commentId = store.getCommentIdForText(item.text),
+                    myIgUserId = store.getIgUserId(),
+                    commentId = item.commentId ?: store.getCommentIdForText(item.text),
                     onCopy = { clipboard.setText(AnnotatedString(item.text)) },
                     onShare = {
                         context.startActivity(Intent.createChooser(
@@ -175,11 +179,11 @@ fun ReviewScreen() {
                             ))
                         store.incReported()
                     },
-                    onNotHate = {
-                        store.correctFalsePositive(idx); items.value = store.getFlaggedItems()
-                    },
+                    onReportUser = { handle -> InstagramIntents.openUserProfile(context, handle) },
+                    onNotHate = { store.correctFalsePositive(idx); items.value = store.getFlaggedItems() },
                     onHide = {
-                        store.hideFlaggedItemAt(idx); items.value = store.getFlaggedItems()
+                        store.hideFlaggedItemAt(idx)
+                        items.value = store.getFlaggedItems()
                         hidden.value = store.getHiddenItems()
                     },
                     onDelete = { store.removeFlaggedItemAt(idx); items.value = store.getFlaggedItems() },
@@ -193,6 +197,9 @@ fun ReviewScreen() {
                     },
                     onIgDelete = { cid ->
                         scope.launch(Dispatchers.IO) { graph.deleteComment(cid).also { store.appendLog("ig:delete $it") } }
+                    },
+                    onIgBlock = { myId, authorId ->
+                        scope.launch(Dispatchers.IO) { graph.blockUser(myId, authorId).also { store.appendLog("ig:block $it") } }
                     },
                 )
             }
@@ -246,11 +253,13 @@ private fun CommentCard(
     item: FlaggedItem,
     showAll: Boolean,
     graphReady: Boolean,
+    myIgUserId: String?,
     commentId: String?,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onOpen: () -> Unit,
     onReport: () -> Unit,
+    onReportUser: (String) -> Unit,
     onNotHate: () -> Unit,
     onHide: () -> Unit,
     onDelete: () -> Unit,
@@ -258,7 +267,11 @@ private fun CommentCard(
     onMarkSafe: () -> Unit,
     onIgHide: (String) -> Unit,
     onIgDelete: (String) -> Unit,
+    onIgBlock: (myId: String, authorId: String) -> Unit,
 ) {
+    val confirmDelete = remember { mutableStateOf(false) }
+    val confirmBlock = remember { mutableStateOf(false) }
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -267,17 +280,19 @@ private fun CommentCard(
                 maxLines = 6,
                 overflow = TextOverflow.Ellipsis,
             )
-            item.sourceUrl?.let {
+            if (item.authorHandle != null) {
                 Text(
-                    it,
+                    "@${item.authorHandle}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
+            item.sourceUrl?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             HorizontalDivider()
-            // Primary actions row
+
+            // Primary actions
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 IconButton(onClick = onCopy, modifier = Modifier.semantics { contentDescription = "Copy comment" }) {
                     Icon(Icons.Filled.ContentCopy, contentDescription = null)
@@ -290,11 +305,18 @@ private fun CommentCard(
                         Icon(Icons.Filled.OpenInBrowser, contentDescription = null)
                     }
                 }
-                IconButton(onClick = onReport, modifier = Modifier.semantics { contentDescription = "Report via Instagram" }) {
+                IconButton(onClick = onReport, modifier = Modifier.semantics { contentDescription = "Report post via Instagram" }) {
                     Icon(Icons.Filled.Flag, contentDescription = null)
                 }
+                if (item.authorHandle != null) {
+                    IconButton(
+                        onClick = { onReportUser(item.authorHandle) },
+                        modifier = Modifier.semantics { contentDescription = "Open @${item.authorHandle} profile to report" },
+                    ) { Icon(Icons.Filled.PersonSearch, contentDescription = null) }
+                }
             }
-            // Secondary actions
+
+            // Secondary moderation actions
             if (!showAll) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onNotHate) {
@@ -310,11 +332,24 @@ private fun CommentCard(
                         Text(" Delete", color = MaterialTheme.colorScheme.error)
                     }
                 }
-                // Instagram Graph moderation (owned media)
-                if (graphReady && commentId != null) {
+
+                // Instagram Graph moderation (owned post + commentId known)
+                val canModerate = graphReady && commentId != null && item.ownedByMe
+                val canBlock = graphReady && myIgUserId != null && item.authorId != null
+                if (canModerate || canBlock) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { onIgHide(commentId) }) { Text("Hide on IG") }
-                        TextButton(onClick = { onIgDelete(commentId) }) { Text("Delete on IG", color = MaterialTheme.colorScheme.error) }
+                        if (canModerate) {
+                            TextButton(onClick = { onIgHide(commentId!!) }) { Text("Hide on IG") }
+                            TextButton(onClick = { confirmDelete.value = true }) {
+                                Text("Delete on IG", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        if (canBlock) {
+                            TextButton(onClick = { confirmBlock.value = true }) {
+                                Icon(Icons.Filled.Block, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Text(" Block user", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
                     }
                 }
             } else {
@@ -324,5 +359,35 @@ private fun CommentCard(
                 }
             }
         }
+    }
+
+    // Confirm delete on IG
+    if (confirmDelete.value) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete.value = false },
+            title = { Text("Delete comment on Instagram?") },
+            text = { Text("This permanently removes the comment via the Instagram Graph API. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete.value = false; onIgDelete(commentId!!) }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete.value = false }) { Text("Cancel") } },
+        )
+    }
+
+    // Confirm block user
+    if (confirmBlock.value && myIgUserId != null && item.authorId != null) {
+        AlertDialog(
+            onDismissRequest = { confirmBlock.value = false },
+            title = { Text("Block ${item.authorHandle?.let { "@$it" } ?: "this user"}?") },
+            text = { Text("Blocks the commenter from your Instagram account via the Graph API. They won't be notified.") },
+            confirmButton = {
+                TextButton(onClick = { confirmBlock.value = false; onIgBlock(myIgUserId, item.authorId) }) {
+                    Text("Block", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmBlock.value = false }) { Text("Cancel") } },
+        )
     }
 }

@@ -20,8 +20,18 @@ object InstagramIntents {
 	}
 
 	fun openReportHelp(context: Context) {
-		// Generic Instagram help contact page for reporting
-		val help = Uri.parse("https://help.instagram.com/165828726894770")
-		context.startActivity(Intent(Intent.ACTION_VIEW, help))
+		context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://help.instagram.com/165828726894770")))
+	}
+
+	fun openUserProfile(context: Context, handle: String) {
+		val clean = handle.trimStart('@')
+		val appIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/$clean/")).apply {
+			setPackage(INSTAGRAM_PACKAGE)
+		}
+		if (appIntent.resolveActivity(context.packageManager) != null) {
+			context.startActivity(appIntent)
+		} else {
+			context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/$clean/")))
+		}
 	}
 }

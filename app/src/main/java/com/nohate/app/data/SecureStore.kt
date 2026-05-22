@@ -49,29 +49,39 @@ class SecureStore(context: Context) {
 		}
 	}
 
-	// V2 flagged items with optional URL
+	// Flagged items — 6-field format (V2+): text, sourceUrl, commentId, authorId, authorHandle, ownedByMe
+	// Old 2-field V2 entries decode gracefully (missing fields → null/false).
 	fun getFlaggedItems(): List<FlaggedItem> {
-		val rawV2 = prefs.getString(KEY_FLAGGED_V2, "") ?: ""
-		if (rawV2.isNotEmpty()) {
-			return rawV2.split('\u0001')
+		val raw = prefs.getString(KEY_FLAGGED_V2, "") ?: ""
+		if (raw.isNotEmpty()) {
+			return raw.split('\u0001')
 				.filter { it.isNotEmpty() }
 				.map { entry ->
-					val parts = entry.split('\u0002')
-					val text = parts.getOrNull(0) ?: ""
-					val url = parts.getOrNull(1)?.ifBlank { null }
-					FlaggedItem(text = text, sourceUrl = url)
+					val p = entry.split('\u0002')
+					FlaggedItem(
+						text = p.getOrNull(0) ?: "",
+						sourceUrl = p.getOrNull(1)?.ifBlank { null },
+						commentId = p.getOrNull(2)?.ifBlank { null },
+						authorId = p.getOrNull(3)?.ifBlank { null },
+						authorHandle = p.getOrNull(4)?.ifBlank { null },
+						ownedByMe = p.getOrNull(5) == "1",
+					)
 				}
 		}
-		// Fallback to legacy
-		return getFlaggedComments().map { FlaggedItem(text = it, sourceUrl = null) }
+		return getFlaggedComments().map { FlaggedItem(text = it) }
 	}
 
 	fun setFlaggedItems(items: List<FlaggedItem>) {
-		val trimmed = items.takeLast(500)
-		val serialized = trimmed.joinToString("\u0001") { item ->
-			val safeText = item.text.replace('\u0001', ' ').replace('\u0002', ' ')
-			val safeUrl = (item.sourceUrl ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
-			"${safeText}\u0002${safeUrl}"
+		fun String?.safe() = (this ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
+		val serialized = items.takeLast(500).joinToString("\u0001") { item ->
+			listOf(
+				item.text.safe(),
+				item.sourceUrl.safe(),
+				item.commentId.safe(),
+				item.authorId.safe(),
+				item.authorHandle.safe(),
+				if (item.ownedByMe) "1" else "0",
+			).joinToString("\u0002")
 		}
 		prefs.edit().putString(KEY_FLAGGED_V2, serialized).apply()
 	}
@@ -100,23 +110,34 @@ class SecureStore(context: Context) {
 		incFalsePositive()
 	}
 
-	// Hidden items
+	// Hidden items — same 6-field format as flagged items
 	fun getHiddenItems(): List<FlaggedItem> {
 		val raw = prefs.getString(KEY_HIDDEN_V2, "") ?: ""
 		if (raw.isEmpty()) return emptyList()
 		return raw.split('\u0001').filter { it.isNotEmpty() }.map { entry ->
 			val p = entry.split('\u0002')
-			val text = p.getOrNull(0) ?: ""
-			val url = p.getOrNull(1)?.ifBlank { null }
-			FlaggedItem(text, url)
+			FlaggedItem(
+				text = p.getOrNull(0) ?: "",
+				sourceUrl = p.getOrNull(1)?.ifBlank { null },
+				commentId = p.getOrNull(2)?.ifBlank { null },
+				authorId = p.getOrNull(3)?.ifBlank { null },
+				authorHandle = p.getOrNull(4)?.ifBlank { null },
+				ownedByMe = p.getOrNull(5) == "1",
+			)
 		}
 	}
 
 	fun setHiddenItems(items: List<FlaggedItem>) {
+		fun String?.safe() = (this ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
 		val serialized = items.takeLast(500).joinToString("\u0001") { item ->
-			val safeText = item.text.replace('\u0001', ' ').replace('\u0002', ' ')
-			val safeUrl = (item.sourceUrl ?: "").replace('\u0001', ' ').replace('\u0002', ' ')
-			"${safeText}\u0002${safeUrl}"
+			listOf(
+				item.text.safe(),
+				item.sourceUrl.safe(),
+				item.commentId.safe(),
+				item.authorId.safe(),
+				item.authorHandle.safe(),
+				if (item.ownedByMe) "1" else "0",
+			).joinToString("\u0002")
 		}
 		prefs.edit().putString(KEY_HIDDEN_V2, serialized).apply()
 	}
