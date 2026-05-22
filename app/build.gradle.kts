@@ -68,7 +68,6 @@ dependencies {
 	implementation("androidx.compose.ui:ui")
 	implementation("androidx.compose.ui:ui-tooling-preview")
 	implementation("androidx.compose.material3:material3:1.3.1")
-	implementation("androidx.compose.material3:material3-adaptive:1.0.0")
 	debugImplementation("androidx.compose.ui:ui-tooling")
 	implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 
@@ -82,11 +81,12 @@ dependencies {
 
 	implementation("org.tensorflow:tensorflow-lite:2.12.0")
 
-	// ONNX Runtime Mobile + Extensions (Phase 2 — primary NLP classifier).
-	// The Extensions library carries the BertTokenizer / SentencePiece custom
-	// ops that the bundled .onnx file embeds. See docs/MODELS.md.
+	// ONNX Runtime Mobile (Phase 2 — primary NLP classifier).
+	// onnxruntime-extensions-android (BertTokenizer / SentencePiece custom ops)
+	// is loaded reflectively at runtime by OnnxClassifier — re-add the
+	// dependency at a confirmed published version when bundling the first
+	// tokenizer-embedded model. See docs/MODELS.md.
 	implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
-	implementation("com.microsoft.onnxruntime:onnxruntime-extensions-android:0.12.0")
 
 	androidTestImplementation("androidx.test:core-ktx:1.6.1")
 	androidTestImplementation("androidx.test.ext:junit:1.2.1")

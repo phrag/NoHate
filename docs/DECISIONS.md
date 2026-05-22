@@ -88,6 +88,18 @@ Lightweight ADRs for the NoHate rewrite. Each entry: context, choice, consequenc
 
 ---
 
+## ADR-008 — Defer `onnxruntime-extensions-android` until a real model is bundled
+
+**Status:** Accepted (2026-05-22) — refines ADR-004
+
+**Context:** First CI run on the rewrite branch failed: `com.microsoft.onnxruntime:onnxruntime-extensions-android:0.12.0` doesn't exist at that coordinate on Maven Central. ORT Extensions has had several artifact-id and version shifts; without an actual tokenizer-embedded model to test against, picking the right version was a guess.
+
+**Decision:** Remove the Extensions dep from `app/build.gradle.kts` for now. Keep `OnnxClassifier`'s reflective `registerCustomOpLibrary` — it's already a no-op when the class isn't on the classpath. Re-add the dependency at a verified published version in the same PR that bundles the first tokenizer-embedded `.onnx` model.
+
+**Consequences:** Build is green on a transformer-less Phase 2. No functional regression: `ClassifierRegistry.readyOnnxIds()` skips any ONNX backend whose session fails to initialise, so the rules core remains the live primary until a real model lands. Net: ADR-004 holds in spirit; only the timing of the dependency adoption changed.
+
+---
+
 ## ADR template (use this for new entries)
 
 ```

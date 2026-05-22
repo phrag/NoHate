@@ -15,7 +15,12 @@ All notable changes to NoHate. Format follows [Keep a Changelog](https://keepach
 
 ### Changed
 - `ScanWorker` drives classification through `ClassifierManager`; max-of-primaries + LLM borderline semantics and user lexicon overrides preserved.
-- Compose BOM bumped to `2024.10.01`; `material3` to `1.3.1`; `material3-adaptive 1.0.0` added.
+- Compose BOM bumped to `2024.10.01`; `material3` to `1.3.1`.
+- CI: `gradle/wrapper-validation-action@v2` → `gradle/actions/wrapper-validation@v4` (renamed upstream; old path has flaky checksum lookups).
+
+### Deferred
+- `onnxruntime-extensions-android` dep deferred to Phase 2 tail (re-add at a confirmed published version when bundling the first tokenizer-embedded model). `OnnxClassifier` already loads it reflectively so its absence is a clean no-op.
+- `material3-adaptive` dep dropped from Phase 2; the right coordinate sits under the `androidx.compose.material3.adaptive` group and will be added in Phase 4 when adaptive layouts actually land.
 
 ### Planned
 - Bundle `toxic-distilbert-int8.onnx` in `assets/models/` (Phase 2 tail).
