@@ -8,6 +8,11 @@ Prereqs:
 - Rust + cargo (`rustup`)
 - `cargo-ndk` (`cargo install cargo-ndk`)
 
+Initialize submodules (llama.cpp lives under `app/src/main/cpp/third_party/`):
+```bash
+git submodule update --init --recursive
+```
+
 Install Android Rust targets:
 ```bash
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
