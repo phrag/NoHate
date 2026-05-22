@@ -50,7 +50,6 @@ import java.text.DateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onMessage: (String) -> Unit, onOpenReview: () -> Unit) {
     val context = LocalContext.current
