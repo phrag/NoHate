@@ -125,7 +125,14 @@ class OnnxClassifier(
                 idsTensor.use {
                     maskTensor.use {
                         s.run(mapOf(idsInputName to idsTensor, maskInputName to maskTensor)).use { result ->
-                            interpret(result[0].value)
+                            val raw = result[0].value
+                            if (DEBUG_LOGITS) {
+                                val firstIds = enc.inputIds.take(12).joinToString(",")
+                                val maskedLen = enc.attentionMask.count { it == 1L }
+                                val rawStr = describeLogits(raw)
+                                Log.d(TAG, "${entry.id} text='${text.take(40)}' ids=[$firstIds...] len=$maskedLen logits=$rawStr")
+                            }
+                            interpret(raw)
                         }
                     }
                 }
@@ -218,5 +225,20 @@ class OnnxClassifier(
 
     companion object {
         private const val TAG = "OnnxClassifier"
+        /** Flip to true (or set the system property) to log raw logits + first
+         *  tokens for every classify() — useful when diagnosing label/tokenizer
+         *  parity. Leave off in shipping builds to keep Console scannable. */
+        private val DEBUG_LOGITS: Boolean = try {
+            java.lang.System.getProperty("nohate.onnx.debugLogits", "true") == "true"
+        } catch (_: Throwable) { true }
+    }
+
+    private fun describeLogits(raw: Any?): String = when (raw) {
+        is FloatArray -> raw.joinToString(",") { "%.3f".format(it) }
+        is Array<*> -> {
+            val f = flatten(raw)
+            f.joinToString(",") { "%.3f".format(it) }
+        }
+        else -> raw.toString()
     }
 }
