@@ -18,7 +18,7 @@
     "sourceRepo": "martin-ha/toxic-comment-model",
     "tokenizerEmbedded": false,
     "outputKind": "softmax_pair",
-    "hateLabelIndex": 0
+    "hateLabelIndex": 1
   },
     {
       "id": "dehatebert-en",
