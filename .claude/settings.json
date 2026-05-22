@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "if out=$(./gradlew :app:lintDebug --quiet --no-daemon 2>&1); then exit 0; fi; printf '%s' \"$out\" | tail -200 | jq -Rsc '{decision:\"block\",reason:(\"Android lint failed after git commit. Fix the findings before continuing:\\n\\n\" + .)}'",
+            "timeout": 300,
+            "statusMessage": "Running Android lint..."
+          }
+        ]
+      }
+    ]
+  }
+}
