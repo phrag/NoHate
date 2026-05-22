@@ -46,6 +46,14 @@ class ScanWorker(
     }
 
     private fun notifyDone(flagged: Int) {
+        // Android 13+: POST_NOTIFICATIONS is a runtime permission. Skip silently
+        // if not granted — the user can still see results in-app.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = applicationContext.checkSelfPermission(
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
         val channelId = "scan_status"
         val openIntent = Intent(applicationContext, MainActivity::class.java)
         val pendingOpen = PendingIntent.getActivity(applicationContext, 0, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -56,7 +64,11 @@ class ScanWorker(
             .setAutoCancel(true)
             .addAction(0, "View results", pendingOpen)
             .build()
-        NotificationManagerCompat.from(applicationContext).notify(1002, notification)
+        try {
+            NotificationManagerCompat.from(applicationContext).notify(1002, notification)
+        } catch (_: SecurityException) {
+            // Belt-and-braces: race between permission check and notify.
+        }
     }
 	override suspend fun doWork(): Result {
 		val store = SecureStore(applicationContext)

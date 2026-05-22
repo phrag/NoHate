@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 	<uses-permission android:name="android.permission.INTERNET" />
+	<!-- Android 13+ requires POST_NOTIFICATIONS at runtime; we request via
+	     ActivityCompat.requestPermissions and guard NotificationManagerCompat.notify
+	     calls in ScanWorker. -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
 	<application
 		android:allowBackup="false"
@@ -31,10 +36,6 @@
 
 		<activity
 			android:name=".auth.SessionLoginActivity"
-			android:exported="false" />
-
-		<receiver
-			android:name=".work.CancelScanReceiver"
 			android:exported="false" />
 
 		<service
