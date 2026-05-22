@@ -7,6 +7,18 @@ JNI_LIBS_DIR="${PROJ_ROOT}/app/src/main/jniLibs"
 
 mkdir -p "${JNI_LIBS_DIR}"
 
+# Resolve NDK: prefer ANDROID_NDK_HOME, then ANDROID_NDK_ROOT (set by GitHub-hosted runners),
+# then the default SDK location used by Android Studio.
+if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then
+  if [[ -n "${ANDROID_NDK_ROOT:-}" ]]; then
+    export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
+  elif [[ -d "${HOME}/Library/Android/sdk/ndk" ]]; then
+    ANDROID_NDK_HOME="$(ls -d "${HOME}/Library/Android/sdk/ndk"/*/  2>/dev/null | sort -V | tail -n1)"
+    export ANDROID_NDK_HOME="${ANDROID_NDK_HOME%/}"
+  fi
+fi
+echo "Using NDK: ${ANDROID_NDK_HOME:-<not set, cargo-ndk will auto-detect>}"
+
 pushd "${PROJ_ROOT}/rust/core" >/dev/null
 if ! command -v cargo-ndk >/dev/null 2>&1; then
 	echo "cargo-ndk is required. Install with: cargo install cargo-ndk"
