@@ -87,7 +87,7 @@ class BenchRunner(
 		onProgress(id, "accuracy")
 		val accuracy = scoreAccuracy(classifier)
 
-		BenchOutcome(
+		return BenchOutcome(
 			classifierId = id,
 			classifierDisplayName = classifier.info.displayName,
 			cold = coldStats,
