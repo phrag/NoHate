@@ -3,215 +3,377 @@ package com.nohate.app.ui
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.nohate.app.auth.SessionLoginActivity
 import com.nohate.app.data.SecureStore
-import com.nohate.app.ml.TfliteClassifier
 import com.nohate.app.llm.LlamaEngine
 import com.nohate.app.llm.LlmDownloader
+import com.nohate.app.ml.TfliteClassifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import com.nohate.app.work.ScanWorker
-import androidx.compose.foundation.layout.Row
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    onOpenManualTest: (() -> Unit)? = null,
+    onMessage: ((String) -> Unit)? = null,
+    onOpenOnboarding: (() -> Unit)? = null,
+    onOpenBenchmark: (() -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    val store = remember { SecureStore(context) }
+
+    val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
+    val graphEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_graph")) }
+    val sessionEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_session")) }
+    val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
+    val useLlm = remember { mutableStateOf(store.isUseLlm()) }
+    val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
+    val modelPresent = remember { mutableStateOf(LlamaEngine(context).modelPresent()) }
+    val showLlmPrompt = remember { mutableStateOf(false) }
+    val downloading = remember { mutableStateOf(false) }
+    val downloadMsg = remember { mutableStateOf("") }
+    val maxPerUrl = remember { mutableStateOf(store.getMaxCommentsPerUrl().toString()) }
+
+    androidx.compose.runtime.LaunchedEffect(true) {
+        while (true) {
+            modelPresent.value = LlamaEngine(context).modelPresent()
+            kotlinx.coroutines.delay(5000)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        Spacer(Modifier.height(4.dp))
+
+        // ── Calibration ──────────────────────────────────────────────────────
+        SectionHeader(icon = { Icon(Icons.Filled.Tune, contentDescription = null) }, title = "Calibration")
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Flag threshold: ${String.format("%.2f", threshold.value)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = threshold.value,
+                    onValueChange = { threshold.value = it.coerceIn(0.5f, 0.95f) },
+                    valueRange = 0.5f..0.95f,
+                    modifier = Modifier.semantics { contentDescription = "Flag threshold slider, currently ${String.format("%.2f", threshold.value)}" },
+                )
+                Text("Lower = more aggressive, higher = more selective.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FilledTonalButton(onClick = {
+                    store.setFlagThreshold(threshold.value)
+                    store.appendLog("settings:threshold ${String.format("%.2f", threshold.value)}")
+                    onMessage?.invoke("Threshold saved")
+                }) { Text("Save threshold") }
+
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+
+                Text("Scan interval: ${minutes.value} min", style = MaterialTheme.typography.bodyMedium)
+                Slider(
+                    value = minutes.value.toFloat(),
+                    onValueChange = { minutes.value = it.toInt().coerceIn(15, 120) },
+                    valueRange = 15f..120f,
+                    steps = 6,
+                    modifier = Modifier.semantics { contentDescription = "Scan interval slider, currently ${minutes.value} minutes" },
+                )
+                FilledTonalButton(onClick = { store.setIntervalMinutes(minutes.value) }) { Text("Save interval") }
+
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+
+                Text("Max comments per URL", style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = maxPerUrl.value,
+                    onValueChange = {
+                        maxPerUrl.value = it.filter { ch -> ch.isDigit() }.take(5)
+                        it.filter { ch -> ch.isDigit() }.toIntOrNull()?.let { v -> store.setMaxCommentsPerUrl(v) }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        // ── Models ────────────────────────────────────────────────────────────
+        SectionHeader(icon = { Icon(Icons.Filled.Memory, contentDescription = null) }, title = "Models")
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                ListItem(
+                    headlineContent = { Text("Quantized on-device model") },
+                    supportingContent = { Text("TFLite; lower accuracy, faster") },
+                    trailingContent = {
+                        Switch(
+                            checked = useQuant.value,
+                            onCheckedChange = {
+                                useQuant.value = it
+                                store.setUseQuantizedModel(it)
+                                store.appendLog("settings:quant ${it}")
+                                if (it) {
+                                    try { TfliteClassifier(context).classify("warmup") } catch (_: Throwable) {}
+                                    onMessage?.invoke("Quantized model enabled")
+                                } else onMessage?.invoke("Quantized model disabled")
+                            },
+                        )
+                    },
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("TinyLlama borderline model") },
+                    supportingContent = {
+                        Text(when {
+                            useLlm.value && modelPresent.value -> "LLM ready — used for borderline cases"
+                            useLlm.value -> "Enabled but model missing (~210 MB)"
+                            else -> "Disabled"
+                        })
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = useLlm.value,
+                            onCheckedChange = {
+                                useLlm.value = it
+                                store.setUseLlm(it)
+                                store.appendLog("settings:llm ${it}")
+                                val llm = LlamaEngine(context)
+                                modelPresent.value = llm.modelPresent()
+                                if (it && !llm.modelPresent()) showLlmPrompt.value = true
+                                onMessage?.invoke(if (it) "LLM enabled" else "LLM disabled")
+                            },
+                        )
+                    },
+                )
+                if (!modelPresent.value) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (downloadMsg.value.isNotEmpty()) {
+                            Text(downloadMsg.value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                if (downloading.value) return@FilledTonalButton
+                                downloading.value = true
+                                downloadMsg.value = "Downloading ~210 MB (Wi-Fi recommended)…"
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    val ok = LlmDownloader.resolveAndDownload(
+                                        context,
+                                        repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+                                        quantSuffix = "Q4_K_M"
+                                    )
+                                    downloading.value = false
+                                    modelPresent.value = LlamaEngine(context).modelPresent()
+                                    store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
+                                    downloadMsg.value = if (ok) "Downloaded successfully" else "Download failed — retry on Wi-Fi"
+                                    onMessage?.invoke(if (ok) "LLM model ready" else "LLM download failed")
+                                }
+                            },
+                            enabled = !downloading.value,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                            Text("  Download TinyLlama (~210 MB)")
+                        }
+                    }
+                }
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Benchmark classifiers") },
+                    supportingContent = { Text("Measure latency, throughput, accuracy") },
+                    trailingContent = {
+                        TextButton(onClick = { onOpenBenchmark?.invoke() }) {
+                            Icon(Icons.Filled.Analytics, contentDescription = null)
+                            Text("  Open")
+                        }
+                    },
+                )
+            }
+        }
+
+        // ── Connectors ────────────────────────────────────────────────────────
+        SectionHeader(icon = { Icon(Icons.Filled.Hub, contentDescription = null) }, title = "Connectors")
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                ListItem(
+                    headlineContent = { Text("Instagram Business / Creator") },
+                    supportingContent = { Text("OAuth + PKCE — needed for Graph API moderation") },
+                    trailingContent = {
+                        Switch(
+                            checked = graphEnabled.value,
+                            onCheckedChange = {
+                                graphEnabled.value = it
+                                store.setFeatureEnabled("ig_graph", it)
+                                store.appendLog("settings:ig_graph $it")
+                            },
+                        )
+                    },
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Instagram Personal (session)") },
+                    supportingContent = { Text("Opt-in session cookies — no credentials stored") },
+                    trailingContent = {
+                        Switch(
+                            checked = sessionEnabled.value,
+                            onCheckedChange = {
+                                sessionEnabled.value = it
+                                store.setFeatureEnabled("ig_session", it)
+                                store.appendLog("settings:ig_session $it")
+                                if (it) context.startActivity(Intent(context, SessionLoginActivity::class.java))
+                            },
+                        )
+                    },
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Wipe Instagram credentials") },
+                    supportingContent = { Text("Removes all stored tokens and cookies") },
+                    trailingContent = {
+                        TextButton(onClick = {
+                            store.clearProvider("instagram")
+                            store.appendLog("settings:wipe instagram")
+                            onMessage?.invoke("Instagram credentials wiped")
+                        }) { Text("Wipe", color = MaterialTheme.colorScheme.error) }
+                    },
+                )
+            }
+        }
+
+        // ── Privacy ───────────────────────────────────────────────────────────
+        SectionHeader(icon = { Icon(Icons.Filled.Security, contentDescription = null) }, title = "Privacy")
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                ListItem(
+                    headlineContent = { Text("Re-run setup wizard") },
+                    supportingContent = { Text("Walk through onboarding again") },
+                    trailingContent = {
+                        TextButton(onClick = { onOpenOnboarding?.invoke() }) {
+                            Icon(Icons.Filled.Login, contentDescription = null)
+                            Text("  Open")
+                        }
+                    },
+                )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text("Local AI Training") },
+                    supportingContent = { Text("Label comments to improve on-device accuracy") },
+                    trailingContent = {
+                        TextButton(onClick = { onOpenManualTest?.invoke() }) { Text("Open") }
+                    },
+                )
+            }
+        }
+
+        // ── Danger zone ───────────────────────────────────────────────────────
+        SectionHeader(icon = { Icon(Icons.Filled.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) }, title = "Danger zone", error = true)
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("These actions clear stored data and cannot be undone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FilledTonalButton(
+                    onClick = {
+                        store.setFlaggedItems(emptyList())
+                        store.setHiddenItems(emptyList())
+                        onMessage?.invoke("Flagged items cleared")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Clear all flagged items") }
+                FilledTonalButton(
+                    onClick = {
+                        store.clearMonitoredUrls()
+                        onMessage?.invoke("Monitored posts cleared")
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Clear monitored posts") }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+
+    if (showLlmPrompt.value) {
+        AlertDialog(
+            onDismissRequest = { showLlmPrompt.value = false },
+            title = { Text("Download TinyLlama") },
+            text = { Text("~210 MB on Wi-Fi. Stored on-device; no data leaves your phone. Used only for borderline cases.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLlmPrompt.value = false
+                    if (!downloading.value) {
+                        downloading.value = true
+                        downloadMsg.value = "Downloading…"
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val ok = LlmDownloader.resolveAndDownload(
+                                context,
+                                repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+                                quantSuffix = "Q4_K_M"
+                            )
+                            downloading.value = false
+                            modelPresent.value = LlamaEngine(context).modelPresent()
+                            downloadMsg.value = if (ok) "Downloaded" else "Failed"
+                        }
+                    }
+                }) { Text("Download") }
+            },
+            dismissButton = { TextButton(onClick = { showLlmPrompt.value = false }) { Text("Later") } },
+        )
+    }
+}
 
 @Composable
-fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null, onOpenOnboarding: (() -> Unit)? = null, onOpenBenchmark: (() -> Unit)? = null) {
-	val context = LocalContext.current
-	val store = remember { SecureStore(context) }
-	val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
-	val graphEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_graph")) }
-	val sessionEnabled = remember { mutableStateOf(store.isFeatureEnabled("ig_session")) }
-	val useQuant = remember { mutableStateOf(store.isUseQuantizedModel()) }
-	val useLlm = remember { mutableStateOf(store.isUseLlm()) }
-	val threshold = remember { mutableStateOf(store.getFlagThreshold()) }
-	val modelPresent = remember { mutableStateOf(LlamaEngine(context).modelPresent()) }
-	val showLlmPrompt = remember { mutableStateOf(false) }
-	val downloading = remember { mutableStateOf(false) }
-	val downloadMsg = remember { mutableStateOf("") }
-	// Live scan/progress chips
-	val scanTotal = remember { mutableStateOf(store.getScanProgressTotal()) }
-	val scanDone = remember { mutableStateOf(store.getScanProgressDone()) }
-	val scanMsg = remember { mutableStateOf(store.getScanProgressMsg()) }
-	val lastTotal = remember { mutableStateOf(store.getLastScanTotal()) }
-	val lastFlagged = remember { mutableStateOf(store.getLastScanFlagged()) }
-
-	androidx.compose.runtime.LaunchedEffect(true) {
-		while (true) {
-			scanTotal.value = store.getScanProgressTotal()
-			scanDone.value = store.getScanProgressDone()
-			scanMsg.value = store.getScanProgressMsg()
-			lastTotal.value = store.getLastScanTotal()
-			lastFlagged.value = store.getLastScanFlagged()
-			kotlinx.coroutines.delay(1000)
-		}
-	}
-
-	Column(
-		modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-		verticalArrangement = Arrangement.spacedBy(16.dp)
-	) {
-		Text("Settings", style = MaterialTheme.typography.titleLarge)
-		// Status chips
-		Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (scanTotal.value>0) "Scan ${scanDone.value}/${scanTotal.value}: ${scanMsg.value}" else "Scan idle") })
-			androidx.compose.material3.AssistChip(onClick = {}, label = { Text("Last ${lastFlagged.value}/${lastTotal.value} flagged") })
-			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (useLlm.value) if (modelPresent.value) "LLM ready" else "LLM enabled, model missing" else "LLM off") })
-			androidx.compose.material3.AssistChip(onClick = {}, label = { Text(if (useQuant.value) "Quant on" else "Quant off") })
-		}
-		androidx.compose.material3.FilledTonalButton(onClick = { onOpenOnboarding?.invoke() }) { Text("Run setup wizard") }
-
-		androidx.compose.material3.ElevatedCard { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		Text("Scan every ${minutes.value} minutes")
-		Slider(value = minutes.value.toFloat(), onValueChange = {
-			minutes.value = it.toInt().coerceIn(15, 120)
-		}, valueRange = 15f..120f)
-		androidx.compose.material3.FilledTonalButton(onClick = { store.setIntervalMinutes(minutes.value) }) { Text("Save interval") }
-		} }
-
-		androidx.compose.material3.ElevatedCard { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-		Text("Flagging threshold: ${String.format("%.2f", threshold.value)}")
-		Slider(value = threshold.value, onValueChange = {
-			threshold.value = it.coerceIn(0.5f, 0.95f)
-		}, valueRange = 0.5f..0.95f)
-		androidx.compose.material3.FilledTonalButton(onClick = {
-			store.setFlagThreshold(threshold.value)
-			store.appendLog("settings:threshold ${String.format("%.2f", threshold.value)}")
-			onMessage?.invoke("Threshold set to ${String.format("%.2f", threshold.value)}")
-		}) { Text("Save threshold") }
-		} }
-
-		Text("Connectors")
-		androidx.compose.material3.FilledTonalButton(onClick = {
-			graphEnabled.value = !graphEnabled.value
-			store.setFeatureEnabled("ig_graph", graphEnabled.value)
-			store.appendLog("settings:ig_graph ${graphEnabled.value}")
-		}) { Text(if (graphEnabled.value) "Disable Instagram Business/Creator" else "Enable Instagram Business/Creator") }
-
-		androidx.compose.material3.FilledTonalButton(onClick = {
-			sessionEnabled.value = !sessionEnabled.value
-			store.setFeatureEnabled("ig_session", sessionEnabled.value)
-			store.appendLog("settings:ig_session ${sessionEnabled.value}")
-			if (sessionEnabled.value) {
-				context.startActivity(Intent(context, SessionLoginActivity::class.java))
-			}
-		}) { Text(if (sessionEnabled.value) "Disable Instagram Personal" else "Enable Instagram Personal (session)") }
-
-		androidx.compose.material3.FilledTonalButton(onClick = { store.clearProvider("instagram"); store.appendLog("settings:wipe instagram") }) { Text("Wipe Instagram credentials") }
-
-		Text("On-device model (quantized)")
-		Switch(checked = useQuant.value, onCheckedChange = {
-			useQuant.value = it
-			store.setUseQuantizedModel(it)
-			store.appendLog("settings:quant ${it}")
-			if (it) {
-				try { TfliteClassifier(context).classify("warmup") } catch (_: Throwable) {}
-				onMessage?.invoke("Quantized model enabled")
-			} else onMessage?.invoke("Quantized model disabled")
-		})
-
-		Text("On-device LLM (tiny)")
-		Switch(checked = useLlm.value, onCheckedChange = {
-			useLlm.value = it
-			store.setUseLlm(it)
-			store.appendLog("settings:llm ${it}")
-			val llm = LlamaEngine(context)
-			val present = llm.modelPresent()
-			modelPresent.value = present
-			if (it) {
-				onMessage?.invoke(
-					when {
-						llm.isReady() -> "LLM enabled"
-						present -> "LLM model present; engine not yet enabled"
-						else -> "LLM enabled but model missing (~210 MB)"
-					}
-				)
-				if (!present) showLlmPrompt.value = true
-			} else onMessage?.invoke("LLM disabled")
-		})
-
-		Text("Why download? The tiny LLM double-checks borderline comments to reduce false positives.")
-		Text("Size: ~210 MB, stored on-device. No data leaves your phone.")
-		Text("Tip: Download on Wi‑Fi. CPU/battery are used only during scans.")
-
-		Text(if (modelPresent.value) "LLM model present" else "LLM model missing (~210 MB)")
-		if (!modelPresent.value) {
-			androidx.compose.material3.FilledTonalButton(onClick = {
-				if (downloading.value) return@FilledTonalButton
-				downloading.value = true
-				downloadMsg.value = "Resolving model and downloading (~210 MB, Wi‑Fi recommended)..."
-				CoroutineScope(Dispatchers.IO).launch {
-					val ok = LlmDownloader.resolveAndDownload(
-						context,
-						repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-						quantSuffix = "Q4_K_M"
-					)
-					downloading.value = false
-					modelPresent.value = LlamaEngine(context).modelPresent()
-					store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
-					onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
-				}
-			}, enabled = !downloading.value) { Text("Resolve + Download (~210 MB, Wi‑Fi)") }
-			if (downloadMsg.value.isNotEmpty()) Text(downloadMsg.value)
-		}
-
-		if (showLlmPrompt.value) {
-			AlertDialog(
-				onDismissRequest = { showLlmPrompt.value = false },
-				title = { Text("Download LLM model") },
-				text = { Text("The tiny LLM helps with borderline cases to improve accuracy. Download size is ~210 MB. Stored on-device; no data is sent to servers. Recommended on Wi‑Fi.") },
-				confirmButton = {
-					TextButton(onClick = {
-						showLlmPrompt.value = false
-						if (!downloading.value) {
-							downloading.value = true
-							downloadMsg.value = "Resolving model and downloading (~210 MB, Wi‑Fi recommended)..."
-							CoroutineScope(Dispatchers.IO).launch {
-								val ok = LlmDownloader.resolveAndDownload(
-									context,
-									repoId = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-									quantSuffix = "Q4_K_M"
-								)
-								downloading.value = false
-								modelPresent.value = LlamaEngine(context).modelPresent()
-								store.appendLog(if (ok) "llm:download ok" else "llm:download fail")
-								onMessage?.invoke(if (ok) "LLM model downloaded" else "LLM download failed")
-							}
-						}
-					}) { Text("Resolve + Download (~210 MB)") }
-				},
-				dismissButton = { TextButton(onClick = { showLlmPrompt.value = false }) { Text("Later") } }
-			)
-		}
-
-		Text("Max comments per URL scan")
-		val maxPerUrl = remember { mutableStateOf(store.getMaxCommentsPerUrl().toString()) }
-		OutlinedTextField(value = maxPerUrl.value, onValueChange = {
-			maxPerUrl.value = it.filter { ch -> ch.isDigit() }.take(5)
-			it.filter { ch -> ch.isDigit() }.toIntOrNull()?.let { v -> store.setMaxCommentsPerUrl(v) }
-		}, singleLine = true)
-
-		androidx.compose.material3.FilledTonalButton(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
-		androidx.compose.material3.FilledTonalButton(onClick = { onOpenBenchmark?.invoke() }) { Text("Benchmark classifiers") }
-	}
+private fun SectionHeader(
+    icon: @Composable () -> Unit,
+    title: String,
+    error: Boolean = false,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        icon()
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        )
+    }
 }
