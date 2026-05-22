@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "toxic-distilbert-int8",
+      "displayName": "Toxic DistilBERT (INT8)",
+      "kind": "onnx",
+      "primary": true,
+      "bundled": true,
+      "asset": "models/toxic-distilbert-int8.onnx",
+      "sha256": "",
+      "sizeBytes": 35000000,
+      "estPeakMemMb": 90,
+      "languages": ["en"],
+      "license": "Apache-2.0",
+      "version": "1.0.0",
+      "sourceRepo": "martin-ha/toxic-comment-model",
+      "tokenizerEmbedded": true,
+      "outputKind": "sigmoid_single"
+    },
+    {
+      "id": "dehatebert-en",
+      "displayName": "DehateBERT (EN)",
+      "kind": "onnx",
+      "primary": true,
+      "bundled": false,
+      "url": "https://huggingface.co/Hate-speech-CNERG/dehatebert-mono-english/resolve/main/model.int8.onnx",
+      "sha256": "",
+      "sizeBytes": 110000000,
+      "estPeakMemMb": 180,
+      "languages": ["en"],
+      "license": "Apache-2.0",
+      "version": "1.0.0",
+      "sourceRepo": "Hate-speech-CNERG/dehatebert-mono-english",
+      "tokenizerEmbedded": true,
+      "outputKind": "softmax_pair"
+    },
+    {
+      "id": "twitter-roberta-hate",
+      "displayName": "Twitter RoBERTa hate (latest)",
+      "kind": "onnx",
+      "primary": true,
+      "bundled": false,
+      "url": "https://huggingface.co/cardiffnlp/twitter-roberta-base-hate-latest/resolve/main/model.int8.onnx",
+      "sha256": "",
+      "sizeBytes": 110000000,
+      "estPeakMemMb": 180,
+      "languages": ["en"],
+      "license": "MIT",
+      "version": "1.0.0",
+      "sourceRepo": "cardiffnlp/twitter-roberta-base-hate-latest",
+      "tokenizerEmbedded": true,
+      "outputKind": "softmax_pair"
+    }
+  ]
+}

@@ -63,6 +63,17 @@ Key directories:
 - Compose: one screen per file under `ui/`; theme tokens in `ui/theme/`.
 - Rust: keep the JNI surface small and stable; prefer pure functions for testability.
 
+## Building from your phone
+
+`android-ci.yml` builds debug + release APKs on every push to any branch and on `workflow_dispatch`. From a phone:
+
+1. Push a change (via the GitHub web UI, a mobile git client, or Claude Code on the web).
+2. Open the **GitHub mobile app** → repo → Actions → the running workflow.
+3. When green, scroll to **Artifacts** and download `NoHate-debug-apk`.
+4. Open the downloaded zip, tap the APK to install (you'll be asked to allow installs from your browser / Files app the first time).
+
+To kick a build without a push, tap **Run workflow** on the Actions tab — that's the `workflow_dispatch` trigger.
+
 ## Roadmap & decisions
 
 See [`ROADMAP.md`](ROADMAP.md) for the phased plan and [`docs/DECISIONS.md`](docs/DECISIONS.md) for architectural choices.

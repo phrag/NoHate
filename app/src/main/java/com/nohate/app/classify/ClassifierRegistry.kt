@@ -14,27 +14,60 @@ import com.nohate.app.data.SecureStore
 class ClassifierRegistry(private val context: Context) {
 	private val store by lazy { SecureStore(context) }
 	private val cache = mutableMapOf<String, Classifier>()
+	private val onnxEntries: Map<String, ModelEntry> by lazy {
+		ModelRegistry.onnxModels(context).associateBy { it.id }
+	}
 
+	/**
+	 * Ids of every backend the app is currently willing to run, in priority order:
+	 *   ready ONNX primaries, rules core, optional TFLite stub, optional LLM.
+	 */
 	fun available(): List<String> = buildList {
+		addAll(readyOnnxIds())
 		add(RulesClassifier.ID)
 		if (store.isUseQuantizedModel()) add(LegacyTfliteClassifier.ID)
 		if (store.isUseLlm()) add(LlmClassifier.ID)
-		// Phase 2: ONNX backends discovered from registry.json appended here.
 	}
 
-	fun get(id: String): Classifier? = cache.getOrPut(id) {
-		create(id) ?: return null
+	fun get(id: String): Classifier? {
+		cache[id]?.let { return it }
+		val created = create(id) ?: return null
+		cache[id] = created
+		return created
 	}
 
-	private fun create(id: String): Classifier? = when (id) {
-		RulesClassifier.ID -> RulesClassifier(
-			userHate = { store.getUserHatePhrases() },
-			userSafe = { store.getUserSafePhrases() },
-		)
-		LegacyTfliteClassifier.ID -> LegacyTfliteClassifier(context)
-		LlmClassifier.ID -> LlmClassifier(context).takeIf { it.isReady() }
-		else -> null
+	private fun create(id: String): Classifier? {
+		if (id in onnxEntries) {
+			val entry = onnxEntries.getValue(id)
+			return OnnxClassifier(context, entry).takeIf { it.isReady() }
+		}
+		return when (id) {
+			RulesClassifier.ID -> RulesClassifier(
+				userHate = { store.getUserHatePhrases() },
+				userSafe = { store.getUserSafePhrases() },
+			)
+			LegacyTfliteClassifier.ID -> LegacyTfliteClassifier(context)
+			LlmClassifier.ID -> LlmClassifier(context).takeIf { it.isReady() }
+			else -> null
+		}
 	}
+
+	/**
+	 * ONNX models whose artefact is on disk right now. Bundled models are
+	 * considered ready as long as the asset path resolves at construction;
+	 * downloaded models need a local file under `filesDir/models/<id>/`.
+	 */
+	private fun readyOnnxIds(): List<String> = onnxEntries.values
+		.filter { it.primary }
+		.filter { entry ->
+			if (entry.bundled && entry.asset != null) assetExists(entry.asset)
+			else ModelDownloader.isPresent(context, entry)
+		}
+		.map { it.id }
+
+	private fun assetExists(name: String): Boolean = try {
+		context.assets.open(name).use { true }
+	} catch (_: Throwable) { false }
 
 	fun close() {
 		cache.values.forEach { runCatching { it.close() } }
