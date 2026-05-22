@@ -37,7 +37,7 @@ The shipped registry lives at `app/src/main/assets/models/registry.json`. Each e
 
 ## Conversion recipe (ONNX)
 
-Phase 2 will add `scripts/export_onnx.py` and `scripts/quantize_onnx.py`. The flow is:
+Full runbook lives in [`BUNDLING_MODELS.md`](BUNDLING_MODELS.md). Summary:
 
 ```bash
 pip install -U optimum[exporters] onnx onnxruntime onnxruntime-extensions transformers
