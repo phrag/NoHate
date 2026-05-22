@@ -27,6 +27,10 @@ data class ModelEntry(
 	val sourceRepo: String?,
 	val tokenizerEmbedded: Boolean,
 	val outputKind: OutputKind,
+	/** For SOFTMAX_PAIR: which logit index corresponds to the "hate"/"toxic" class.
+	 *  Default 1 matches the standard HuggingFace convention (label 0 = negative,
+	 *  label 1 = positive). Set to 0 for models trained with the inverse mapping. */
+	val hateLabelIndex: Int,
 ) {
 	enum class OutputKind { SIGMOID_SINGLE, SOFTMAX_PAIR, RAW_LOGIT;
 		companion object {
@@ -72,6 +76,7 @@ object ModelRegistry {
 						sourceRepo = o.optString("sourceRepo", "").takeIf { it.isNotEmpty() },
 						tokenizerEmbedded = o.optBoolean("tokenizerEmbedded", true),
 						outputKind = ModelEntry.OutputKind.parse(o.optString("outputKind", null)),
+						hateLabelIndex = o.optInt("hateLabelIndex", 1),
 					)
 				)
 			}

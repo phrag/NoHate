@@ -155,7 +155,11 @@ class OnnxClassifier(
             ModelEntry.OutputKind.RAW_LOGIT -> (flat.firstOrNull() ?: 0f).coerceIn(0f, 1f)
             ModelEntry.OutputKind.SOFTMAX_PAIR -> {
                 if (flat.size < 2) sigmoid(flat.firstOrNull() ?: 0f)
-                else softmaxHate(flat[0], flat[1])
+                else {
+                    val hateIdx = entry.hateLabelIndex.coerceIn(0, 1)
+                    val notHateIdx = 1 - hateIdx
+                    softmaxHate(flat[notHateIdx], flat[hateIdx])
+                }
             }
         }
     }
