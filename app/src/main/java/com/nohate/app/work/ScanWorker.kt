@@ -3,15 +3,12 @@ package com.nohate.app.work
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.nohate.app.NativeClassifier
+import com.nohate.app.classify.ClassifierManager
 import com.nohate.app.data.SecureStore
 import com.nohate.app.platform.CommentProvider
 import com.nohate.app.platform.InstagramGraphProvider
 import com.nohate.app.platform.InstagramSessionProvider
 import com.nohate.app.platform.InstagramProvider
-import com.nohate.app.ml.TfliteClassifier
-import com.nohate.app.llm.LlamaEngine
-import com.nohate.app.llm.LlmEngine
 import android.util.Log
 import com.nohate.app.data.FlaggedItem
 import android.app.Notification
@@ -114,24 +111,20 @@ class ScanWorker(
 		setForeground(createForegroundInfo("Scanning ${comments.size} comments"))
 		val userHate = store.getUserHatePhrases()
 		val userSafe = store.getUserSafePhrases()
-		val threshold = store.getFlagThreshold()
-		val llmBand = store.getLlmBandWidth(threshold)
-		val useQuant = store.isUseQuantizedModel()
-		val tfl = if (useQuant) TfliteClassifier(applicationContext) else null
-		val useLlm = store.isUseLlm()
-		val llm: LlmEngine? = if (useLlm) LlamaEngine(applicationContext).takeIf { it.isReady() } else null
-		Log.d(TAG, "scan start comments=${comments.size} quant=$useQuant llmToggle=$useLlm llmReady=${llm != null} thr=${"%.2f".format(threshold)}")
+		val manager = ClassifierManager(applicationContext)
+		val threshold = manager.threshold
+		val borderline = manager.borderlineOrNull()
+		Log.d(TAG, "scan start comments=${comments.size} primary=${manager.primaryIds()} borderlineReady=${borderline != null} thr=${"%.2f".format(threshold)}")
 		var processed = 0
-		val flaggedTexts = comments.filter { comment ->
+		val flaggedTexts = try { comments.filter { comment ->
 			try {
-				val rulesScore = NativeClassifier.classifyWithUser(comment, userHate, userSafe)
-				val modelScore = tfl?.classify(comment) ?: 0f
-				var finalScore = maxOf(rulesScore, modelScore)
-				if (finalScore in (threshold - llmBand)..threshold && llm != null) {
+				val primary = manager.classifyPrimary(comment)
+				var finalScore = primary.probability
+				if (borderline != null && manager.isInBorderlineBand(finalScore)) {
 					store.incLlmInvocations()
-					val res = llm.classify(comment, LlamaEngine.PROMPT)
-					Log.d(TAG, "llm used text='${comment.take(40)}' rules=${"%.2f".format(rulesScore)} tfl=${"%.2f".format(modelScore)} llm=${"%.2f".format(res.score)}")
-					finalScore = maxOf(finalScore, res.score)
+					val res = borderline.classify(comment)
+					Log.d(TAG, "llm used text='${comment.take(40)}' primary=${"%.2f".format(primary.probability)}(${primary.backend}) llm=${"%.2f".format(res.probability)}")
+					finalScore = maxOf(finalScore, res.probability)
 				}
 				// Apply explicit user overrides last: user-hate forces flag, user-safe forces not-flag
 				val lc = comment.lowercase()
@@ -141,7 +134,7 @@ class ScanWorker(
 				var overrideNote = ""
 				if (hateOverride) { isFlagged = true; overrideNote = " override=hate"; store.addCalibrationSample("hate") }
 				else if (safeOverride) { isFlagged = false; overrideNote = " override=safe"; store.addCalibrationSample("safe") }
-				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} flagged=$isFlagged${overrideNote} text='${comment.take(40)}'")
+				store.appendLog("scan:decision score=${"%.2f".format(finalScore)} backend=${primary.backend} flagged=$isFlagged${overrideNote} text='${comment.take(40)}'")
 				processed += 1
 				if (processed % 5 == 0 || processed == comments.size) {
 					store.setScanProgress(total = comments.size, done = processed, message = "Classified ${processed}/${comments.size}")
@@ -152,7 +145,7 @@ class ScanWorker(
 				store.appendLog("scan:error ${t.message ?: t.javaClass.simpleName}")
 				false
 			}
-		}
+		} } finally { manager.close() }
 		// De-duplicate against already flagged and hidden items
 		val alreadyFlagged = store.getFlaggedItems().map { it.text }.toSet()
 		val alreadyHidden = store.getHiddenItems().map { it.text }.toSet()
