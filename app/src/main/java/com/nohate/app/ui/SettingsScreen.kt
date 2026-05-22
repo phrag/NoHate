@@ -36,7 +36,7 @@ import com.nohate.app.work.ScanWorker
 import androidx.compose.foundation.layout.Row
 
 @Composable
-fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null, onOpenOnboarding: (() -> Unit)? = null) {
+fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) -> Unit)? = null, onOpenOnboarding: (() -> Unit)? = null, onOpenBenchmark: (() -> Unit)? = null) {
 	val context = LocalContext.current
 	val store = remember { SecureStore(context) }
 	val minutes = remember { mutableStateOf(store.getIntervalMinutes()) }
@@ -212,5 +212,6 @@ fun SettingsScreen(onOpenManualTest: (() -> Unit)? = null, onMessage: ((String) 
 		}, singleLine = true)
 
 		androidx.compose.material3.FilledTonalButton(onClick = { onOpenManualTest?.invoke() }) { Text("Local AI Training") }
+		androidx.compose.material3.FilledTonalButton(onClick = { onOpenBenchmark?.invoke() }) { Text("Benchmark classifiers") }
 	}
 }

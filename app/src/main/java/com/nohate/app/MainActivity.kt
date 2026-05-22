@@ -52,6 +52,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.foundation.clickable
 import com.nohate.app.ui.ConsoleScreen
 import com.nohate.app.ui.ReviewScreen
+import com.nohate.app.ui.BenchScreen
 import com.nohate.app.ui.MetricsCard
 import android.content.Intent
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -122,10 +123,11 @@ private fun App() {
 				onOpenManualTrain = { nav.navigate("manualTest") },
 				onOpenReview = { nav.navigate("review") }
 			) }
-			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg: String -> scope.launch { snackbarHostState.showSnackbar(message = msg) } }, onOpenOnboarding = { nav.navigate("onboarding") }) }
+			composable("settings") { SettingsScreen(onOpenManualTest = { nav.navigate("manualTest") }, onMessage = { msg: String -> scope.launch { snackbarHostState.showSnackbar(message = msg) } }, onOpenOnboarding = { nav.navigate("onboarding") }, onOpenBenchmark = { nav.navigate("bench") }) }
 			composable("manualTest") { ManualTestScreen(onOpenReview = { nav.navigate("review") }) }
 			composable("console") { ConsoleScreen() }
 			composable("review") { ReviewScreen() }
+			composable("bench") { BenchScreen(onMessage = { msg: String -> scope.launch { snackbarHostState.showSnackbar(message = msg) } }) }
 		}
 	}
 

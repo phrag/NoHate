@@ -12,6 +12,8 @@ All notable changes to NoHate. Format follows [Keep a Changelog](https://keepach
 - Conversion recipes: `scripts/export_onnx.py`, `scripts/quantize_onnx.py`.
 - Rust rules core: NFKC normalization, zero-width / bidi stripping, run-collapse, and identity-term gating. Backed by unit tests.
 - CI: `android-ci.yml` now runs on every branch and supports `workflow_dispatch` so phone-driven builds produce APK artifacts.
+- Benchmark harness (`com.nohate.app.bench`): runs every available classifier through warmup + cold/warm latency (p50/p95/p99) + throughput + PSS memory + accuracy (precision/recall/F1/AUC) against a bundled eval CSV. Exposed via a new **Benchmark classifiers** entry under Settings.
+- Placeholder evaluation CSV at `app/src/main/assets/bench/eval.csv` (ETHOS-shaped; swap in the real ETHOS file for proper F1 numbers).
 
 ### Changed
 - `ScanWorker` drives classification through `ClassifierManager`; max-of-primaries + LLM borderline semantics and user lexicon overrides preserved.

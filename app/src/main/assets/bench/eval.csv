@@ -1,0 +1,30 @@
+# NoHate benchmark evaluation set — PLACEHOLDER.
+#
+# This is a tiny demonstration set so the Benchmark screen works end-to-end
+# out of the box. To get meaningful accuracy numbers, replace this file with
+# the ETHOS binary dataset (MIT licensed):
+#
+#   https://github.com/intelligence-csd-auth-gr/Ethos-Hate-Speech-Dataset
+#
+# Convert ETHOS to two columns (label,text) with label=1 for hate and
+# label=0 for non-hate, then drop it in at this exact path.
+#
+# Lines starting with '#' are ignored. The header row is optional.
+#
+label,text
+1,"You are awful and I hate you"
+1,"get out of here you stupid trash"
+1,"kill yourself"
+1,"those people are all the same dumb idiots"
+1,"go back where you came from"
+1,"you people are toxic"
+1,"fuck you and your post"
+1,"this is hate and you are a slur"
+0,"Great post, thanks for sharing!"
+0,"I disagree, but appreciate the perspective."
+0,"Looking forward to seeing more like this."
+0,"That song slaps, can't stop listening."
+0,"Reasonable take, well argued."
+0,"Lovely photo, where was it taken?"
+0,"Congrats on the milestone!"
+0,"I had a similar experience last summer."

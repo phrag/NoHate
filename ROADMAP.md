@@ -21,11 +21,12 @@ See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/MODELS.md`](doc
 - [x] Rust unit tests for the normalization + scoring
 
 ## Phase 3 — Benchmark harness
-- [ ] `com.nohate.app.bench` package: `BenchSuite`, `BenchRunner`, `BenchResult`
-- [ ] Bundle ETHOS eval CSV at `app/src/main/assets/bench/eval.csv` with attribution
-- [ ] `BenchScreen` Compose UI under Settings
-- [ ] Export results as JSON; share intent
-- [ ] Populate first `docs/BENCHMARKS.md` results
+- [x] `com.nohate.app.bench` package: `BenchSuite`, `BenchRunner`, `BenchResult`
+- [x] Placeholder eval CSV at `app/src/main/assets/bench/eval.csv` (ETHOS-shaped; replace with the real ETHOS file for meaningful F1 numbers)
+- [x] `BenchScreen` Compose UI reachable from Settings
+- [x] Export results as JSON to app private storage (`filesDir/bench/run-<ts>.json`)
+- [ ] Share intent for the exported JSON (deferred to Phase 4 — needs `FileProvider` declaration)
+- [ ] Populate first `docs/BENCHMARKS.md` results _(run on a device once the build is green)_
 
 ## Phase 4 — UI/UX refresh (Material 3 Expressive)
 - [ ] Dynamic color theme on API ≥ 31, fallback palette on lower
