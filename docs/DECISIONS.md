@@ -98,6 +98,8 @@ Lightweight ADRs for the NoHate rewrite. Each entry: context, choice, consequenc
 
 **Consequences:** Build is green on a transformer-less Phase 2. No functional regression: `ClassifierRegistry.readyOnnxIds()` skips any ONNX backend whose session fails to initialise, so the rules core remains the live primary until a real model lands. Net: ADR-004 holds in spirit; only the timing of the dependency adoption changed.
 
+**Update (2026-05):** Resolved. Maven Central does publish `com.microsoft.onnxruntime:onnxruntime-extensions-android` (versions `0.6.0` through `0.13.0`); the original `0.12.0` lookup was bad data — the actual line is `0.12.4` → `0.13.0`. Restored at `0.13.0` as a regular `implementation` dependency. Reflective registration in `OnnxClassifier` stays in place as belt-and-braces.
+
 ---
 
 ## ADR-009 — Migrate to Kotlin 2.0 and the Compose Compiler Gradle plugin
