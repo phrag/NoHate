@@ -41,6 +41,21 @@ Unit tests (when available):
 ./gradlew :app:testDebugUnitTest
 ```
 
+### Screenshot tests (Paparazzi)
+
+UI regression catching via [Paparazzi](https://cashapp.github.io/paparazzi/) — renders Compose composables to PNG on the JVM, no emulator. Golden PNGs live under `app/src/test/snapshots/` and are committed.
+
+```bash
+# Verify current UI against committed goldens
+./gradlew :app:verifyPaparazziDebug
+
+# Regenerate goldens after an intentional UI change, then commit the PNGs
+./scripts/record_screenshots.sh
+git add app/src/test/snapshots/
+```
+
+CI runs `verifyPaparazziDebug` non-blocking until the first goldens land — once you've recorded and committed snapshots, remove `continue-on-error: true` from `.github/workflows/android-ci.yml`.
+
 ## Project layout
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the module map and data flow.

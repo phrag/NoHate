@@ -95,59 +95,18 @@ fun HomeScreen(onMessage: (String) -> Unit, onOpenReview: () -> Unit) {
 
         // Hero scan status card
         item {
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (isScanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(56.dp).semantics { contentDescription = "Scan in progress" },
-                                    progress = { scanProgress },
-                                    strokeWidth = 4.dp,
-                                )
-                            } else {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(56.dp),
-                                    progress = { 1f },
-                                    strokeWidth = 4.dp,
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                )
-                            }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                if (isScanning) "Scanning…" else "Idle",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            val whenStr = if (lastScanAt == 0L) "Never scanned"
-                            else "Last scan: ${DateFormat.getDateTimeInstance().format(Date(lastScanAt))}"
-                            Text(whenStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    if (isScanning) {
-                        LinearProgressIndicator(
-                            progress = { scanProgress },
-                            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Scan progress ${scanDone} of ${scanTotal}" },
-                        )
-                        Text("${scanMsg} (${scanDone}/${scanTotal})", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(onClick = {}, label = { Text("${lastScanTotal} scanned") })
-                        AssistChip(
-                            onClick = onOpenReview,
-                            label = { Text("${lastScanFlagged} flagged") },
-                            modifier = Modifier.semantics { contentDescription = "View ${lastScanFlagged} flagged comments" },
-                        )
-                        AssistChip(onClick = {}, label = { Text(if (sessionActive) "Session on" else "No session") })
-                    }
-                }
-            }
+            HomeStatusCard(
+                isScanning = isScanning,
+                scanProgress = scanProgress,
+                lastScanAt = lastScanAt,
+                lastScanTotal = lastScanTotal,
+                lastScanFlagged = lastScanFlagged,
+                scanMsg = scanMsg,
+                scanDone = scanDone,
+                scanTotal = scanTotal,
+                sessionActive = sessionActive,
+                onOpenReview = onOpenReview,
+            )
         }
 
         // Action buttons
@@ -266,5 +225,73 @@ fun HomeScreen(onMessage: (String) -> Unit, onOpenReview: () -> Unit) {
         }
 
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+fun HomeStatusCard(
+    isScanning: Boolean,
+    scanProgress: Float,
+    lastScanAt: Long,
+    lastScanTotal: Int,
+    lastScanFlagged: Int,
+    scanMsg: String,
+    scanDone: Int,
+    scanTotal: Int,
+    sessionActive: Boolean,
+    onOpenReview: () -> Unit,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(56.dp).semantics { contentDescription = "Scan in progress" },
+                            progress = { scanProgress },
+                            strokeWidth = 4.dp,
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(56.dp),
+                            progress = { 1f },
+                            strokeWidth = 4.dp,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        if (isScanning) "Scanning…" else "Idle",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    val whenStr = if (lastScanAt == 0L) "Never scanned"
+                    else "Last scan: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(lastScanAt))}"
+                    Text(whenStr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (isScanning) {
+                LinearProgressIndicator(
+                    progress = { scanProgress },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Scan progress ${scanDone} of ${scanTotal}" },
+                )
+                Text("${scanMsg} (${scanDone}/${scanTotal})", style = MaterialTheme.typography.bodySmall)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(onClick = {}, label = { Text("${lastScanTotal} scanned") })
+                AssistChip(
+                    onClick = onOpenReview,
+                    label = { Text("${lastScanFlagged} flagged") },
+                    modifier = Modifier.semantics { contentDescription = "View ${lastScanFlagged} flagged comments" },
+                )
+                AssistChip(onClick = {}, label = { Text(if (sessionActive) "Session on" else "No session") })
+            }
+        }
     }
 }

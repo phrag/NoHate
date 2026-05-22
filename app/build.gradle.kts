@@ -1,6 +1,7 @@
 plugins {
 	id("com.android.application")
 	id("org.jetbrains.kotlin.android")
+	id("app.cash.paparazzi")
 }
 
 android {
@@ -92,4 +93,8 @@ dependencies {
 	androidTestImplementation("androidx.test.ext:junit:1.2.1")
 	androidTestImplementation("androidx.test:runner:1.6.2")
 	androidTestImplementation("androidx.work:work-testing:2.9.1")
+
+	// JVM unit tests + Paparazzi screenshot tests (Phase 6).
+	testImplementation("junit:junit:4.13.2")
+	testImplementation(composeBom)
 }
