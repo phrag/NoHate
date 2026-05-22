@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export a Hugging Face text-classification model to ONNX with an embedded tokenizer.
+"""Export a Hugging Face text-classification model to ONNX.
 
 Usage:
     pip install -U "optimum[exporters]" onnx onnxruntime onnxruntime-extensions transformers
@@ -11,37 +11,46 @@ Usage:
 Then quantize with scripts/quantize_onnx.py and copy the result into
 app/src/main/assets/models/ (see docs/MODELS.md).
 
-This script intentionally does the simple thing — `optimum-cli export onnx`
-plus a follow-up step that wraps the model with a tokenizer custom op so
-the on-device classifier can feed raw strings.
+We call optimum.exporters.onnx.main_export() directly instead of shelling out
+to `optimum-cli` — the CLI arg surface has drifted across releases and is
+fragile; the Python entry point is stable.
 """
 
 from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 
 def export(model_id: str, out_dir: Path, task: str = "text-classification") -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "optimum-cli",
-        "export",
-        "onnx",
-        "--model",
-        model_id,
-        "--task",
-        task,
-        str(out_dir),
-    ]
-    print("[export]", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    try:
+        from optimum.exporters.onnx import main_export
+    except ImportError as e:
+        raise SystemExit(
+            "optimum with the ONNX exporter is required. "
+            "Install with: pip install -U \"optimum[exporters]\""
+        ) from e
+
+    print(f"[export] main_export(model={model_id!r}, output={str(out_dir)!r}, task={task!r})")
+    main_export(
+        model_name_or_path=model_id,
+        output=str(out_dir),
+        task=task,
+    )
     onnx_path = out_dir / "model.onnx"
     if not onnx_path.exists():
-        raise SystemExit(f"expected {onnx_path} to exist after export")
+        # Some optimum versions name the artefact after the model.
+        candidates = list(out_dir.glob("*.onnx"))
+        if len(candidates) == 1:
+            candidates[0].rename(onnx_path)
+        else:
+            raise SystemExit(
+                f"expected exactly one .onnx in {out_dir} after export, "
+                f"found: {[p.name for p in candidates]}"
+            )
     return onnx_path
 
 
@@ -87,12 +96,20 @@ def main() -> int:
     out_dir = Path(args.output)
     onnx_path = export(args.model, out_dir, args.task)
     if not args.skip_tokenizer:
-        wrapped = embed_tokenizer(args.model, onnx_path)
+        try:
+            wrapped = embed_tokenizer(args.model, onnx_path)
+        except Exception as e:
+            print(
+                f"[warn]    tokenizer embedding failed ({e}); keeping the "
+                f"plain ONNX model. You can re-run with --skip-tokenizer "
+                f"and tokenize on the Kotlin side instead."
+            )
+            print(f"[done]    {onnx_path} (no tokenizer embedded)")
+            return 0
         # Keep the wrapped artefact as the canonical model.onnx so the
         # quantize step + asset bundling don't need to know about the suffix.
-        target = onnx_path
-        shutil.move(str(wrapped), target)
-        print(f"[done]    {target}")
+        shutil.move(str(wrapped), onnx_path)
+        print(f"[done]    {onnx_path}")
     else:
         print(f"[done]    {onnx_path} (no tokenizer embedded)")
     return 0
