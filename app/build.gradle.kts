@@ -1,6 +1,7 @@
 plugins {
 	id("com.android.application")
 	id("org.jetbrains.kotlin.android")
+	id("org.jetbrains.kotlin.plugin.compose")
 	id("app.cash.paparazzi")
 }
 
@@ -48,7 +49,10 @@ android {
 
 	buildFeatures { compose = true }
 
-	composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+	// Kotlin 2.0+: the Compose Compiler version comes from the
+	// `org.jetbrains.kotlin.plugin.compose` plugin applied above. The legacy
+	// composeOptions { kotlinCompilerExtensionVersion = ... } block is no
+	// longer used.
 
 	compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 

@@ -100,6 +100,18 @@ Lightweight ADRs for the NoHate rewrite. Each entry: context, choice, consequenc
 
 ---
 
+## ADR-009 — Migrate to Kotlin 2.0 and the Compose Compiler Gradle plugin
+
+**Status:** Accepted (2026-05)
+
+**Context:** Phase 6 added Paparazzi for Compose screenshot tests. Paparazzi 1.3.5 ships Kotlin 2.0 on its plugin classpath, which AGP 8.11.1 detects and refuses the build with: *"Starting in Kotlin 2.0, the Compose Compiler Gradle plugin is required when compose is enabled"*. Pinning Paparazzi to 1.3.4 (ADR-bypass commit) kept Kotlin 1.9.24 working but blocked the Paparazzi upgrade path and left us on a version line that's not getting new Compose support.
+
+**Decision:** Upgrade Kotlin to 2.0.21, apply `org.jetbrains.kotlin.plugin.compose:2.0.21`, and drop the legacy `composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }` block. Restore Paparazzi to 1.3.5.
+
+**Consequences:** Compose Compiler version is now governed by the Kotlin plugin instead of an AGP option — fewer moving parts. K2 compiler is the default on Kotlin 2.0, generally faster but occasionally stricter (mostly around nullability inference); fix any new errors as they surface. Future Compose BOM bumps no longer need a paired `kotlinCompilerExtensionVersion` update. Paparazzi can track the latest line.
+
+---
+
 ## ADR template (use this for new entries)
 
 ```
