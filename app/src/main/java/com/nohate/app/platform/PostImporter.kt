@@ -9,25 +9,26 @@ object PostImporter {
 	private const val TAG = "PostImporter"
 
 	fun fetchPublicComments(postUrl: String, limit: Int = 50, cookies: String? = null): List<String> {
+		return fetchPublicCommentsRich(postUrl, limit, cookies).map { it.text }
+	}
+
+	fun fetchPublicCommentsRich(postUrl: String, limit: Int = 50, cookies: String? = null): List<CommentData> {
 		return try {
 			val url = postUrl.trim()
 			val short = extractShortcode(url)
 			if (short == null) {
 				val html = httpGet(url, cookies)
 				val fromHtml = if (html != null) extractFromHtml(html, limit) else emptyList()
-				return fromHtml.take(limit)
+				return fromHtml.take(limit).map { CommentData(text = it) }
 			}
-			// Try GraphQL pagination first
-			val paged = fetchPaginated(short, limit, cookies)
+			val paged = fetchPaginatedRich(short, limit, cookies)
 			if (paged.isNotEmpty()) return paged
-			// Fallback 1: JSON endpoint embedded data
 			val jsonA = httpGet("https://www.instagram.com/p/${short}/?__a=1&__d=dis", cookies)
-			val fromJson = if (!jsonA.isNullOrEmpty()) extractFromJson(jsonA, limit) else emptyList()
+			val fromJson = if (!jsonA.isNullOrEmpty()) extractFromJsonRich(jsonA, limit) else emptyList()
 			if (fromJson.isNotEmpty()) return fromJson.take(limit)
-			// Fallback 2: scrape HTML if needed
 			val html = httpGet("https://www.instagram.com/p/${short}/", cookies)
 			val fromHtml = if (!html.isNullOrEmpty()) extractFromHtml(html, limit) else emptyList()
-			fromHtml.take(limit)
+			fromHtml.take(limit).map { CommentData(text = it) }
 		} catch (t: Throwable) {
 			Log.e(TAG, "import error", t)
 			emptyList()
@@ -68,19 +69,32 @@ object PostImporter {
 		return results
 	}
 
-	private fun extractFromJson(jsonStr: String, limit: Int): List<String> {
+	private fun extractFromJson(jsonStr: String, limit: Int): List<String> =
+		extractFromJsonRich(jsonStr, limit).map { it.text }
+
+	private fun extractFromJsonRich(jsonStr: String, limit: Int): List<CommentData> {
 		return try {
-			val out = mutableListOf<String>()
+			val out = mutableListOf<CommentData>()
 			val root = JSONObject(jsonStr)
-			// Walk common shapes
-			val graphql = root.optJSONObject("graphql")
+			val graphql = root.optJSONObject("graphql") ?: root.optJSONObject("data")
 			val media = graphql?.optJSONObject("shortcode_media")
+			val postOwnerId = media?.optJSONObject("owner")?.optString("id")?.ifBlank { null }
 			val comments = media?.optJSONObject("edge_media_to_parent_comment")?.optJSONArray("edges")
 			if (comments != null) {
 				for (i in 0 until comments.length()) {
-					val node = comments.getJSONObject(i).optJSONObject("node")
-					val text = node?.optString("text") ?: ""
-					if (text.isNotBlank()) out.add(text)
+					val node = comments.getJSONObject(i).optJSONObject("node") ?: continue
+					val text = node.optString("text")
+					if (text.isBlank()) continue
+					val owner = node.optJSONObject("owner")
+					out.add(
+						CommentData(
+							text = text,
+							commentId = node.optString("id").ifBlank { null },
+							authorId = owner?.optString("id")?.ifBlank { null },
+							authorHandle = owner?.optString("username")?.ifBlank { null },
+							postOwnerId = postOwnerId,
+						)
+					)
 					if (out.size >= limit) break
 				}
 			}
@@ -88,8 +102,11 @@ object PostImporter {
 		} catch (_: Throwable) { emptyList() }
 	}
 
-	private fun fetchPaginated(shortcode: String, limit: Int, cookies: String? = null): List<String> {
-		val out = mutableListOf<String>()
+	private fun fetchPaginated(shortcode: String, limit: Int, cookies: String? = null): List<String> =
+		fetchPaginatedRich(shortcode, limit, cookies).map { it.text }
+
+	private fun fetchPaginatedRich(shortcode: String, limit: Int, cookies: String? = null): List<CommentData> {
+		val out = mutableListOf<CommentData>()
 		var endCursor: String? = null
 		var hasNext = true
 		while (hasNext && out.size < limit) {
@@ -104,19 +121,26 @@ object PostImporter {
 			val json = httpGet(url, cookies) ?: break
 			try {
 				val root = JSONObject(json)
-				val edges = root.optJSONObject("data")
-					?.optJSONObject("shortcode_media")
-					?.optJSONObject("edge_media_to_parent_comment")
-					?.optJSONArray("edges")
-				val pageInfo = root.optJSONObject("data")
-					?.optJSONObject("shortcode_media")
-					?.optJSONObject("edge_media_to_parent_comment")
-					?.optJSONObject("page_info")
+				val media = root.optJSONObject("data")?.optJSONObject("shortcode_media")
+				val postOwnerId = media?.optJSONObject("owner")?.optString("id")?.ifBlank { null }
+				val parent = media?.optJSONObject("edge_media_to_parent_comment")
+				val edges = parent?.optJSONArray("edges")
+				val pageInfo = parent?.optJSONObject("page_info")
 				if (edges != null) {
 					for (i in 0 until edges.length()) {
-						val node = edges.getJSONObject(i).optJSONObject("node")
-						val text = node?.optString("text") ?: ""
-						if (text.isNotBlank()) out.add(text)
+						val node = edges.getJSONObject(i).optJSONObject("node") ?: continue
+						val text = node.optString("text")
+						if (text.isBlank()) continue
+						val owner = node.optJSONObject("owner")
+						out.add(
+							CommentData(
+								text = text,
+								commentId = node.optString("id").ifBlank { null },
+								authorId = owner?.optString("id")?.ifBlank { null },
+								authorHandle = owner?.optString("username")?.ifBlank { null },
+								postOwnerId = postOwnerId,
+							)
+						)
 						if (out.size >= limit) break
 					}
 				}

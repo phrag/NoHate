@@ -62,14 +62,16 @@ class ScanWorker(
 		val store = SecureStore(applicationContext)
 		val manual = inputData.getString(KEY_MANUAL_COMMENTS)
 		val sourceUrl = inputData.getString(KEY_SOURCE_URL)
-		val comments: List<String> = when {
+		val myIgUserId = store.getIgUserId()
+		val commentData: List<com.nohate.app.platform.CommentData> = when {
 			!manual.isNullOrBlank() -> {
 				manual.split('\u0001', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+					.map { com.nohate.app.platform.CommentData(text = it) }
 			}
 			!sourceUrl.isNullOrBlank() -> {
 				store.appendLog("scan:url ${sourceUrl}")
 				try {
-					com.nohate.app.platform.PostImporter.fetchPublicComments(
+					com.nohate.app.platform.PostImporter.fetchPublicCommentsRich(
 						sourceUrl!!,
 						limit = store.getMaxCommentsPerUrl(),
 						cookies = store.getSessionCookies("instagram")
@@ -81,29 +83,27 @@ class ScanWorker(
 			}
 			else -> {
 				val provider: CommentProvider = selectProvider(store)
-				val base = provider.fetchRecentComments()
-				// Also include monitored public post URLs
-				val extra = mutableListOf<String>()
+				val base = provider.fetchRecentComments().map { com.nohate.app.platform.CommentData(text = it) }
+				val extra = mutableListOf<com.nohate.app.platform.CommentData>()
 				val urls = store.getMonitoredUrls()
 				if (urls.isNotEmpty()) {
 					store.appendLog("scan:monitored urls=${urls.size}")
-					try {
-						urls.forEach { u ->
-							try {
-								extra += com.nohate.app.platform.PostImporter.fetchPublicComments(
-									u,
-									limit = store.getMaxCommentsPerUrl(),
-									cookies = store.getSessionCookies("instagram")
-								)
-							} catch (t: Throwable) {
-								Log.w(TAG, "monitored fetch failed", t)
-							}
+					urls.forEach { u ->
+						try {
+							extra += com.nohate.app.platform.PostImporter.fetchPublicCommentsRich(
+								u,
+								limit = store.getMaxCommentsPerUrl(),
+								cookies = store.getSessionCookies("instagram")
+							)
+						} catch (t: Throwable) {
+							Log.w(TAG, "monitored fetch failed", t)
 						}
-					} catch (_: Throwable) { }
+					}
 				}
-				(base + extra).distinct()
+				(base + extra).distinctBy { it.text }
 			}
 		}
+		val comments: List<String> = commentData.map { it.text }
 		// Save recent comments for review-all
 		store.setLastComments(comments.takeLast(500))
 		store.setScanProgress(total = comments.size, done = 0, message = "Starting scan")
@@ -151,8 +151,20 @@ class ScanWorker(
 		val alreadyHidden = store.getHiddenItems().map { it.text }.toSet()
 		val newFlaggedTexts = flaggedTexts.filter { it !in alreadyFlagged && it !in alreadyHidden }
 		if (newFlaggedTexts.isNotEmpty()) {
-			val items = newFlaggedTexts.map { FlaggedItem(text = it, sourceUrl = sourceUrl) }
+			val byText = commentData.associateBy { it.text }
+			val items = newFlaggedTexts.map { text ->
+				val rich = byText[text]
+				FlaggedItem(
+					text = text,
+					sourceUrl = sourceUrl,
+					commentId = rich?.commentId,
+					authorId = rich?.authorId,
+					authorHandle = rich?.authorHandle,
+					ownedByMe = rich?.postOwnerId != null && myIgUserId != null && rich.postOwnerId == myIgUserId,
+				)
+			}
 			store.appendFlaggedItems(items)
+			items.forEach { item -> item.commentId?.let { cid -> store.setCommentIdForText(item.text, cid) } }
 			store.enqueueTraining(newFlaggedTexts)
 			Log.d(TAG, "flagged saved count=${items.size} (dedup from ${flaggedTexts.size})")
 			store.appendLog("scan:flagged count=${items.size}")
