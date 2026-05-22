@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Rust JNI core
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}
         run: ./scripts/build_rust_android.sh
 
       - name: Cache Gradle
