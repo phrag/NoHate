@@ -45,8 +45,8 @@ object ModelRegistry {
 	fun load(context: Context): List<ModelEntry> = try {
 		val raw = context.assets.open(ASSET_PATH).use { it.reader().readText() }
 		val root = JSONObject(raw)
-		val arr = root.optJSONArray("models") ?: return emptyList()
-		buildList {
+		val arr = root.optJSONArray("models")
+		if (arr == null) emptyList() else buildList {
 			for (i in 0 until arr.length()) {
 				val o = arr.getJSONObject(i)
 				val langs = o.optJSONArray("languages")
