@@ -1,23 +1,24 @@
 {
   "schemaVersion": 1,
   "models": [
-    {
-      "id": "toxic-distilbert-int8",
-      "displayName": "Toxic DistilBERT (INT8)",
-      "kind": "onnx",
-      "primary": true,
-      "bundled": true,
-      "asset": "models/toxic-distilbert-int8.onnx",
-      "sha256": "",
-      "sizeBytes": 35000000,
-      "estPeakMemMb": 90,
-      "languages": ["en"],
-      "license": "Apache-2.0",
-      "version": "1.0.0",
-      "sourceRepo": "martin-ha/toxic-comment-model",
-      "tokenizerEmbedded": true,
-      "outputKind": "sigmoid_single"
-    },
+  {
+    "id": "toxic-distilbert-int8",
+    "displayName": "Toxic DistilBERT (INT8)",
+    "kind": "onnx",
+    "primary": true,
+    "bundled": true,
+    "asset": "models/toxic-distilbert-int8.onnx",
+    "tokenizer": "models/toxic-distilbert-vocab.txt",
+    "sha256": "fdd8151bde758858f83ccdb9a0a944c175a3adf6668219e6045a8310c094fd70",
+    "sizeBytes": 67348137,
+    "estPeakMemMb": 180,
+    "languages": ["en"],
+    "license": "Apache-2.0",
+    "version": "1.0.0",
+    "sourceRepo": "martin-ha/toxic-comment-model",
+    "tokenizerEmbedded": false,
+    "outputKind": "sigmoid_single"
+  },
     {
       "id": "dehatebert-en",
       "displayName": "DehateBERT (EN)",
