@@ -114,6 +114,27 @@ Lightweight ADRs for the NoHate rewrite. Each entry: context, choice, consequenc
 
 ---
 
+## ADR-010 — Rules core is an escalation signal, not a peer classifier
+
+**Status:** Accepted (2026-08) — refines ADR-002
+
+**Context:** Field testing flagged 31 of 34 comments on a real post. The neural model was not the cause — logit dumps showed `toxic-distilbert` scoring "Great post!" at ≈0.001. Two compounding defects in the rules layer were:
+
+1. `compute_score_base` matched **substrings**, not words. `kill` fired on "skills", `die` fired on "ladies", "audience", "medieval", "foodie", "indie", "candies", "buddies". Replaying the scorer against 20 realistic benign comments produced **14 false positives** — and **0 of 8** hits on coded hate ("88", "1488", "6MWE", "RAHOWA", "(((…)))").
+2. `ClassifierManager.classifyPrimary()` combined the rules core and the neural models with `max()`. Combining classifiers by max takes the **union of their false positives**, so the noisiest backend sets the floor for the entire pipeline. The lexicon alone could flag anything, whatever the model said.
+
+**Decision:**
+
+- Rewrite the Rust scorer around a space-padded **word field**, so every needle matches on word boundaries. Replace the flat weighted-substring list with explicit tiers: coded terms (ADL "Hate on Display"), slurs (leet-folded per token), targeted attacks (identity reference **+** hostile predicate), and harassment. Combine signals as `max + 0.05 per additional hit` rather than summing — two mid-weight hits no longer reach certainty.
+- Demote the rules core in `ClassifierManager`: it may only override a neural verdict when it clears `RULES_ESCALATE_MIN` (0.85 — slurs, coded terms, explicit dehumanisation). Softer signals are advisory. When no neural model is ready, rules still stand in as the primary.
+- Bare numeric codes ("88", "14", "109") count only when the comment is *nothing but* the code, which is the realistic dog-whistle shape and avoids firing on "88 likes already".
+
+**Consequences:** The dominant false-positive source is gone, and coded/dog-whistle content — which neural hate-speech models reliably miss, because these are lexical conventions rather than linguistic patterns — is now caught by the layer actually suited to it. The lexicon becomes a precision instrument rather than a recall net. Costs: the slur list is a hardcoded seed and will drift; it should move to an updatable asset sourced from a maintained database, with the user lexicon (Settings) as the interim extension point. `fuse()` is extracted as a pure function so the fusion policy is unit-testable without a `Context`.
+
+**Still open:** `max()` across the *neural* primaries has the same union-of-false-positives property. Superseding that with mean-or-agreement fusion, exposed as a Strict/Balanced/Sensitive control, is tracked separately alongside the move to a genuine hate-speech model (see ADR-011 when written).
+
+---
+
 ## ADR template (use this for new entries)
 
 ```
